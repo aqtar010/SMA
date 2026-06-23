@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using SMA.API.Data;
 using SMA.API.Models;
 using SMA.API.Utilities;
+using SMA.API.Enums;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
@@ -38,6 +39,13 @@ namespace SMA.API.Controllers
             // Check if email already exists
             if (_dbContext.Users.Any(u => u.Email == request.Email))
                 return BadRequest("User with this email already exists.");
+
+            // Prevent creation of SuperAdmin via API
+            if (!string.IsNullOrEmpty(request.Role) &&
+                string.Equals(request.Role, UserRoles.SuperAdmin.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest("Cannot create SuperAdmin via API. Use the CLI tool.");
+            }
 
             try
             {
