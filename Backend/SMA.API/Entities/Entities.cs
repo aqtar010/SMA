@@ -100,6 +100,35 @@ namespace SMA.API.Entities
         public Product? Product { get; set; }
     }
 
+    public class RefreshToken
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        // Store only the SHA256 hash of the token string
+        [Required]
+        public string TokenHash { get; set; } = string.Empty;
+
+        [Required]
+        public Guid UserId { get; set; }
+
+        [Required]
+        public DateTime Expires { get; set; }
+
+        public bool IsRevoked { get; set; } = false;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public string? CreatedByIp { get; set; }
+
+        public DateTime? RevokedAt { get; set; }
+        public string? RevokedByIp { get; set; }
+        public string? ReplacedByTokenHash { get; set; }
+
+        // Navigation
+        public User? User { get; set; }
+
+        public bool IsExpired => DateTime.UtcNow >= Expires;
+        public bool IsActive => !IsRevoked && !IsExpired;
+    }
     public class Transaction
     {
         public Guid Id { get; set; }

@@ -9,6 +9,7 @@ namespace SMA.API.Data
 
         // These DbSets represent your tables
         public DbSet<User> Users { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<Product> Products { get; set; }
         public DbSet<Inventory> Inventory { get; set; }
         public DbSet<Order> Orders { get; set; }
@@ -51,6 +52,8 @@ namespace SMA.API.Data
                 .WithMany(o => o.Transactions)
                 .HasForeignKey(t => t.OrderId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<RefreshToken>().HasIndex(rt => rt.TokenHash).IsUnique(false);
         }
     }
 }   

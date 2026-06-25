@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using SMA.API.Configuration;
 using SMA.API.Data;
+using SMA.API.Services.ServiceContracts;
+using SMA.API.Services.ServiceImplementation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +22,7 @@ builder.Services.AddCors(x => x.AddPolicy("allow-all", policy =>
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 DependencyInjectionAuth.AddJwtAuthentication(builder.Services, builder.Configuration);
+builder.Services.AddScoped<ITokenService, TokenService>();
 
 var app = builder.Build();
 
@@ -45,7 +48,7 @@ else
     // Only redirect to HTTPS when not in Development (where certs may not be present)
     app.UseHttpsRedirection();
 }
-
+app.UseCors("allow-all");
 app.UseAuthorization();
 
 app.MapControllers();

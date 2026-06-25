@@ -1,20 +1,60 @@
-// frontend/app/page.tsx
-import { fetchProducts } from '@/Lib/api';
+"use client";
 
-export default async function Home() {
-  const products = await fetchProducts();
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/Store/authStore";
+
+export default function Home() {
+  const router = useRouter();
+
+  const authenticated = useAuthStore((s) => s.authenticated);
+  const setAccessToken = useAuthStore((s) => s.setAccessToken);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
+
+  useEffect(() => {
+    const token = localStorage.getItem("jwtToken");
+
+    if (!token) {
+      clearAuth();
+      router.replace("/login");
+      return;
+    }
+
+    setAccessToken(token);
+  }, [router, clearAuth, setAccessToken]);
+
+  function logOutAction() {
+    clearAuth(); // clearAuth should remove localStorage internally
+    router.replace("/login");
+  }
+
+  if (!authenticated) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-900">
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          <p className="text-lg font-semibold">Checking authentication…</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main>
-      <h1>Our Store</h1>
-      <div className="grid grid-cols-3 gap-4">
-        {products.map((p: any) => (
-          <div key={p.id} className="border p-4">
-            <h2>{p.name}</h2>
-            <p>${p.price}</p>
-            <p>Stock: {p.quantityAvailable}</p>
-          </div>
-        ))}
+    <main className="min-h-screen bg-slate-50 text-slate-900">
+      <div className="mx-auto max-w-3xl p-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          <h1 className="text-3xl font-semibold mb-3">Welcome back</h1>
+
+          <p className="text-slate-600 mb-6">
+            You are logged in with a saved token.
+          </p>
+
+          <button
+            className="rounded-lg bg-slate-900 px-4 py-2 text-white hover:bg-slate-700"
+            onClick={logOutAction}
+          >
+            Log out
+          </button>
+        </div>
       </div>
     </main>
   );

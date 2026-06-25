@@ -1,13 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using SMA.API.Data;
-using SMA.API.Models;
-using SMA.API.Utilities;
-using SMA.API.Enums;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
-using System.Text;
+using SMA.API.Data;
+using SMA.API.Enums;
+using SMA.API.Models;
+using SMA.API.Services.ServiceContracts;
+using SMA.API.Utilities;
 
 namespace SMA.API.Controllers
 {
@@ -18,12 +15,14 @@ namespace SMA.API.Controllers
         private readonly ILogger<AuthController> _logger;
         private readonly IConfiguration _configuration;
         private readonly AppDbContext _dbContext;
+        private readonly ITokenService _tokenService;
 
-        public AuthController(ILogger<AuthController> logger, IConfiguration configuration, AppDbContext dbContext)
+        public AuthController(ILogger<AuthController> logger, IConfiguration configuration, AppDbContext dbContext, ITokenService tokenService)
         {
             _logger = logger;
             _configuration = configuration;
             _dbContext = dbContext;
+            _tokenService = tokenService;
         }
 
         /// <summary>
@@ -115,12 +114,15 @@ namespace SMA.API.Controllers
                 await _dbContext.SaveChangesAsync();
 
                 // Generate JWT token
-                var token = GenerateJwtToken(user.Id, user.Email, user.Role);
+                var accessToken = _tokenService.GenerateAccessToken(user);
+                var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                var refreshToken = await _tokenService.CreateRefreshTokenForUserAsync(user, ip);
 
                 _logger.LogInformation("User logged in: {Email}", user.Email);
 
                 return Ok(new { 
-                    token = token,
+                    token = accessToken,
+                    refreshToken = refreshToken,
                     role = user.Role,
                     userId = user.Id,
                     email = user.Email
@@ -133,33 +135,33 @@ namespace SMA.API.Controllers
             }
         }
 
-        private string GenerateJwtToken(Guid userId, string email, string role)
+        [HttpPost("refresh")]
+        public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
         {
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var secretKey = _configuration["JwtSettings:SecretKey"]
-                ?? "default_secret_key_that_is_at_least_32_characters_long";
-            var key = Encoding.ASCII.GetBytes(secretKey);
+            if (string.IsNullOrEmpty(request.RefreshToken)) return BadRequest("RefreshToken is required.");
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-            var tokenDescriptor = new SecurityTokenDescriptor
+            try
             {
-                Subject = new ClaimsIdentity(new[]
-                {
-                    new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-                    new Claim(ClaimTypes.Name, email),
-                    new Claim(ClaimTypes.Role, role),
-                    new Claim("tenant_id", "my-ecommerce-app")
-                }),
-                Expires = DateTime.UtcNow.AddHours(2),
-                Issuer = _configuration["JwtSettings:Issuer"],
-                Audience = _configuration["JwtSettings:Audience"],
-                SigningCredentials = new SigningCredentials(
-                    new SymmetricSecurityKey(key),
-                    SecurityAlgorithms.HmacSha256Signature
-                )
-            };
+                var (accessToken, refreshToken) = await _tokenService.RotateRefreshTokenAsync(request.RefreshToken, ip);
+                return Ok(new { token = accessToken, refreshToken = refreshToken });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid refresh attempt");
+                return Unauthorized("Invalid refresh token.");
+            }
+        }
 
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            return tokenHandler.WriteToken(token);
+        [HttpPost("revoke")]
+        public async Task<IActionResult> Revoke([FromBody] RevokeRequest request)
+        {
+            if (string.IsNullOrEmpty(request.RefreshToken)) return BadRequest("RefreshToken is required.");
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+            var success = await _tokenService.RevokeRefreshTokenAsync(request.RefreshToken, ip);
+            if (!success) return NotFound("Token not found or already revoked.");
+            return Ok(new { message = "Token revoked." });
         }
     }
 }
