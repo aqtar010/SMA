@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/Store/authStore";
+import ProductCard from "@/Components/ProductCard";
+import {fetchProducts} from "@/Lib/ProductApis";
+import { ProductResponseDto } from "@/DTOs/ProductDTOs";
+
+
 
 export default function Home() {
   const router = useRouter();
@@ -10,6 +15,10 @@ export default function Home() {
   const authenticated = useAuthStore((s) => s.authenticated);
   const setAccessToken = useAuthStore((s) => s.setAccessToken);
   const clearAuth = useAuthStore((s) => s.clearAuth);
+
+  const [products,setProducts]=useState<ProductResponseDto[]>([]);
+
+
 
   useEffect(() => {
     const token = localStorage.getItem("jwtToken");
@@ -22,6 +31,20 @@ export default function Home() {
 
     setAccessToken(token);
   }, [router, clearAuth, setAccessToken]);
+  useEffect(() => {
+    if (!authenticated) return;
+
+    async function load() {
+      try {
+        const data = await fetchProducts();
+        if (Array.isArray(data)) setProducts(data as ProductResponseDto[]);
+      } catch (e) {
+        console.error("Failed to fetch products", e);
+      }
+    }
+
+    load();
+  }, [authenticated]);
 
   function logOutAction() {
     clearAuth(); // clearAuth should remove localStorage internally
@@ -54,6 +77,19 @@ export default function Home() {
           >
             Log out
           </button>
+          <div className="products-grid" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+        {products.map((product) => (
+          <ProductCard 
+            key={product.id} // React requires a unique key for list items
+            name={product.name}
+            price={product.price}
+            quantityAvailable={product.quantityAvailable}
+            sku={product.sku}
+            description={product.description}
+            id={product.id}
+          />
+        ))}
+      </div>
         </div>
       </div>
     </main>

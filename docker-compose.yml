@@ -30,7 +30,7 @@
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: sma
     ports:
-      - "5432:5432"
+      - "5440:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
