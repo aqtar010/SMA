@@ -1,7 +1,4 @@
-import axios from "axios";
 import { api } from "./api/api";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 
 export type LoginRequest = {
   email: string;
@@ -16,12 +13,20 @@ export type RegisterRequest = {
   role: string;
 };
 
-export async function login(request: LoginRequest) {
-  const response = await api.post(`${API_BASE_URL}/auth/login`, request);
-  return response.data as { token: string; refreshToken?: string; role?: string; userId?: string; email?: string };
+export type LoginResponse = {
+  token: string;
+  refreshToken?: string;
+  role?: string;
+  userId?: string;
+  email?: string;
+};
+
+export async function login(request: LoginRequest): Promise<LoginResponse> {
+  const response = await api.post<LoginResponse>("/auth/login", request);
+  return response.data;
 }
 
 export async function registerUser(request: RegisterRequest) {
-  const response = await api.post(`${API_BASE_URL}/auth/register`, request);
+  const response = await api.post("/auth/register", request);
   return response.data;
 }

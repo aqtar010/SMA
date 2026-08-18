@@ -62,7 +62,55 @@ namespace Services
             await SaveAsync();
             Console.WriteLine("SuperAdmin created.");
         }
-
+        public async Task CreateAdminAsync(string username, string password)
+        {
+            if (Users.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("Username already exists.");
+            var user = new User
+            {
+                Username = username,
+                PasswordHash = Hash(password),
+                Role = UserRole.Admin
+            };
+            Users.Add(user);
+            await SaveAsync();
+            Console.WriteLine("Admin created.");
+        }
+        public async Task UpdateAdminAsync(string username, string? newUsername = null, string? newPassword = null)
+        {
+            var user = Users.FirstOrDefault(u =>
+                u.Username.Equals(username, StringComparison.OrdinalIgnoreCase) &&
+                u.Role == UserRole.Admin);
+            if (user == null)
+                throw new InvalidOperationException("Admin not found.");
+            if (!string.IsNullOrWhiteSpace(newUsername))
+            {
+                if (Users.Any(u => u.Username.Equals(newUsername, StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException("New username already exists.");
+                user.Username = newUsername;
+            }
+            if (!string.IsNullOrWhiteSpace(newPassword))
+            {
+                user.PasswordHash = Hash(newPassword);
+            }
+            await SaveAsync();
+            Console.WriteLine("Admin updated.");
+        }
+        //public async Task DeleteAdminAsync(string username)
+        //{
+        //    var user = Users.FirstOrDefault(u =>
+        //        u.Username.Equals(username, StringComparison.OrdinalIgnoreCase) &&
+        //        u.Role == UserRole.Admin);
+        //    if (user == null)
+        //        throw new InvalidOperationException("Admin not found.");
+        //    Users.Remove(user);
+        //    await SaveAsync();
+        //    Console.WriteLine("Admin deleted.");
+        //}
+        public async Task<List<User>> ListAdminsAsync()
+        {
+            return Users.Where(u => u.Role == UserRole.Admin).ToList();
+        }
         public async Task CreateUserAsync(string username, string password, UserRole role)
         {
             if (Users.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))

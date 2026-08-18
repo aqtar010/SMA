@@ -16,7 +16,7 @@ export default function LoginPage() {
   const role = "Customer";
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { setAccessToken } = useAuthStore();
+  const { setAuth } = useAuthStore();
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -26,9 +26,17 @@ export default function LoginPage() {
     try {
       if (mode === "login") {
         const response = await login({ email, password });
-        localStorage.setItem("jwtToken", response.token);
-        setAccessToken(response.token);
-        router.replace("/");
+        const role = (response.role ?? "Customer") as
+          | "Customer"
+          | "Admin"
+          | "SuperAdmin";
+        setAuth(response.token, role, response.email);
+
+        if (role === "Admin" || role === "SuperAdmin") {
+          router.replace("/admin/products");
+        } else {
+          router.replace("/");
+        }
       } else {
         await registerUser({ email, password, firstName, lastName, role });
         setMode("login");

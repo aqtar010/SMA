@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using SMA.API.Data;
 using SMA.API.Enums;
 using SMA.API.Utilities;
@@ -76,7 +77,7 @@ namespace SMA.API.Services.Internal
             await db.SaveChangesAsync();
         }
 
-        public static async Task CreateAdminAsync(string connectionString, string email, string password)
+        public static async Task CreateAdminAsync(string connectionString, string email,string firstName,string? lastName, string password)
         {
             var options = new DbContextOptionsBuilder<AppDbContext>()
                 .UseNpgsql(connectionString)
@@ -91,6 +92,8 @@ namespace SMA.API.Services.Internal
             {
                 Email = email,
                 PasswordHash = PasswordHasher.HashPassword(password),
+                FirstName = firstName,
+                LastName = lastName ?? "",
                 Role = UserRoles.Admin.ToString(),
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
@@ -98,7 +101,66 @@ namespace SMA.API.Services.Internal
             };
 
             db.Users.Add(user);
+            try
+            {
+
             await db.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                // Handle unique constraint violation for email
+                if (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+                {
+                    throw new InvalidOperationException("Email already exists.", ex);
+                }
+                throw;
+            }
+        }
+
+        public static async Task UpdateAdminAsync(string connectionString, string email, string? newEmail, string? newPassword)
+        {
+            var options = new DbContextOptionsBuilder<AppDbContext>()
+                .UseNpgsql(connectionString)
+                .Options;
+
+            await using var db = new AppDbContext(options);
+
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email && u.Role == UserRoles.Admin.ToString());
+            if (user == null) throw new InvalidOperationException("Admin not found.");
+
+            if (!string.IsNullOrWhiteSpace(newEmail))
+            {
+                if (await db.Users.AnyAsync(u => u.Email == newEmail && u.Id != user.Id))
+                    throw new InvalidOperationException("Email already in use.");
+                user.Email = newEmail;
+            }
+
+            if (!string.IsNullOrWhiteSpace(newPassword))
+                user.PasswordHash = PasswordHasher.HashPassword(newPassword);
+
+            user.UpdatedAt = DateTime.UtcNow;
+            db.Users.Update(user);
+            await db.SaveChangesAsync();
+        }
+
+        public static async Task<List<Entities.User>> ListAdminsAsync(string connectionString)
+        {
+            var options = new DbContextOptionsBuilder<AppDbContext>()
+                .UseNpgsql(connectionString)
+                .Options;
+
+            await using var db = new AppDbContext(options);
+            return await db.Users.Where(u => u.Role == UserRoles.Admin.ToString()).ToListAsync();
+        }
+
+        public static async Task<Entities.User?> GetAdminByEmailAsync(string connectionString, string email)
+        {
+            var options = new DbContextOptionsBuilder<AppDbContext>()
+                .UseNpgsql(connectionString)
+                .Options;
+
+            await using var db = new AppDbContext(options);
+            return await db.Users.FirstOrDefaultAsync(u => u.Email == email && u.Role == UserRoles.Admin.ToString());
         }
 
         public static async Task<bool> DeleteAdminAsync(string connectionString, string email)
