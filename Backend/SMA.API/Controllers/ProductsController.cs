@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using SMA.API.Data;
 using SMA.API.DTOs;
 using SMA.API.Entities;
+using SMA.API.Hubs;
 
 namespace SMA.API.Controllers
 {
@@ -14,12 +16,14 @@ namespace SMA.API.Controllers
     {
         private readonly AppDbContext _context;
         private readonly ILogger<ProductsController> _logger;
+        private readonly IHubContext<ProductHub> _hubContext;
 
         // Dependency Injection: The framework automatically provides the database context
-        public ProductsController(AppDbContext context, ILogger<ProductsController> logger)
+        public ProductsController(AppDbContext context, ILogger<ProductsController> logger, IHubContext<ProductHub> hubContext)
         {
             _context = context;
             _logger = logger;
+            _hubContext = hubContext;
         }
 
         // GET: api/products
@@ -165,6 +169,36 @@ namespace SMA.API.Controllers
             product.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
+            await _hubContext.Clients
+                .Group(product.Id.ToString())
+                .SendAsync("ProductUpdated", new
+                {
+                    id = product.Id,
+                    productId = product.Id,
+                    sku = product.Sku,
+                    name = product.Name,
+                    description = product.Description,
+                    price = product.Price,
+                    isActive = product.IsActive,
+                    quantityAvailable = product.Inventory?.QuantityAvailable ?? 0,
+                    updatedAt = product.UpdatedAt
+                });
+
+            await _hubContext.Clients
+                .Group("products")
+                .SendAsync("ProductUpdated", new
+                {
+                    id = product.Id,
+                    productId = product.Id,
+                    sku = product.Sku,
+                    name = product.Name,
+                    description = product.Description,
+                    price = product.Price,
+                    isActive = product.IsActive,
+                    quantityAvailable = product.Inventory?.QuantityAvailable ?? 0,
+                    updatedAt = product.UpdatedAt
+                });
+
             return Ok(MapToAdminDto(product));
         }
 
@@ -203,6 +237,36 @@ namespace SMA.API.Controllers
             product.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+
+            await _hubContext.Clients
+                .Group(product.Id.ToString())
+                .SendAsync("ProductUpdated", new
+                {
+                    id = product.Id,
+                    productId = product.Id,
+                    sku = product.Sku,
+                    name = product.Name,
+                    description = product.Description,
+                    price = product.Price,
+                    isActive = product.IsActive,
+                    quantityAvailable = product.Inventory?.QuantityAvailable ?? 0,
+                    updatedAt = product.UpdatedAt
+                });
+
+            await _hubContext.Clients
+                .Group("products")
+                .SendAsync("ProductUpdated", new
+                {
+                    id = product.Id,
+                    productId = product.Id,
+                    sku = product.Sku,
+                    name = product.Name,
+                    description = product.Description,
+                    price = product.Price,
+                    isActive = product.IsActive,
+                    quantityAvailable = product.Inventory?.QuantityAvailable ?? 0,
+                    updatedAt = product.UpdatedAt
+                });
 
             return Ok(MapToAdminDto(product));
         }

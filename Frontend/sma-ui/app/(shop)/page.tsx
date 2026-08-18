@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import ProductCard from "@/Components/ProductCard";
 import { fetchProducts } from "@/Lib/ProductApis";
+import {
+  useProductHub,
+  type ProductUpdatePayload,
+} from "@/Lib/signalR/useProductHub";
 import { ProductResponseDto } from "@/DTOs/ProductDTOs";
 
 export default function Home() {
@@ -25,6 +29,37 @@ export default function Home() {
 
     load();
   }, []);
+
+  const handleProductUpdate = useCallback((payload: ProductUpdatePayload) => {
+    const targetId = payload.id ?? payload.productId;
+    if (!targetId) return;
+
+    setProducts((current) => {
+      const next = current.map((product) =>
+        product.id === targetId
+          ? {
+              ...product,
+              ...(payload.name !== undefined ? { name: payload.name } : {}),
+              ...(payload.description !== undefined
+                ? { description: payload.description }
+                : {}),
+              ...(payload.price !== undefined ? { price: payload.price } : {}),
+              ...(payload.quantityAvailable !== undefined
+                ? { quantityAvailable: payload.quantityAvailable }
+                : {}),
+            }
+          : product,
+      );
+
+      if (payload.isActive === false) {
+        return next.filter((product) => product.id !== targetId);
+      }
+
+      return next;
+    });
+  }, []);
+
+  useProductHub(handleProductUpdate);
 
   return (
     <div>

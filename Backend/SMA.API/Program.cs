@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SMA.API.Configuration;
 using SMA.API.Data;
+using SMA.API.Hubs;
 using SMA.API.Services.ServiceContracts;
 using SMA.API.Services.ServiceImplementation;
 
@@ -9,15 +10,19 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSignalR();
 DependencyInjectionSwagger.AddSwaggerDocumentation(builder.Services);
 
-builder.Services.AddCors(x => x.AddPolicy("allow-all", policy =>
+builder.Services.AddCors(options =>
 {
-    policy.AllowAnyOrigin();
-    policy.AllowAnyMethod();
-    policy.AllowAnyHeader();
-}));
-
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("http://localhost:3000") // Do not use .AllowAnyOrigin() or "*"
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); // Required for SignalR
+    });
+});
 // Configure Entity Framework to use PostgreSQL
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -48,9 +53,10 @@ else
     // Only redirect to HTTPS when not in Development (where certs may not be present)
     app.UseHttpsRedirection();
 }
-app.UseCors("allow-all");
+app.UseCors();
 app.UseAuthorization();
 
+app.MapHub<ProductHub>("/hubs/productHub");
 app.MapControllers();
 
 app.Run();
