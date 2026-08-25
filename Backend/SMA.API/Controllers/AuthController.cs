@@ -1,10 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SMA.API.Data;
-using SMA.API.Enums;
 using SMA.API.Models;
 using SMA.API.Services.ServiceContracts;
-using SMA.API.Utilities;
 
 namespace SMA.API.Controllers
 {
@@ -13,15 +9,13 @@ namespace SMA.API.Controllers
     public class AuthController : ControllerBase
     {
         private readonly ILogger<AuthController> _logger;
-        private readonly IConfiguration _configuration;
-        private readonly AppDbContext _dbContext;
+        private readonly IAuthService _authService;
         private readonly ITokenService _tokenService;
 
-        public AuthController(ILogger<AuthController> logger, IConfiguration configuration, AppDbContext dbContext, ITokenService tokenService)
+        public AuthController(ILogger<AuthController> logger, IAuthService authService, ITokenService tokenService)
         {
             _logger = logger;
-            _configuration = configuration;
-            _dbContext = dbContext;
+            _authService = authService;
             _tokenService = tokenService;
         }
 
@@ -35,42 +29,23 @@ namespace SMA.API.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            // Check if email already exists
-            if (_dbContext.Users.Any(u => u.Email == request.Email))
-                return BadRequest("User with this email already exists.");
-
-            // Prevent creation of SuperAdmin via API
-            if (!string.IsNullOrEmpty(request.Role) &&
-                string.Equals(request.Role, UserRoles.SuperAdmin.ToString(), StringComparison.OrdinalIgnoreCase))
-            {
-                return BadRequest("Cannot create SuperAdmin via API. Use the CLI tool.");
-            }
-
             try
             {
-                var newUser = new Entities.User
-                {
-                    Id = Guid.NewGuid(),
-                    Email = request.Email,
-                    FirstName = request.FirstName,
-                    LastName = request.LastName,
-                    PasswordHash = PasswordHasher.HashPassword(request.Password),
-                    Role = request.Role ?? "Customer",
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                _dbContext.Users.Add(newUser);
-                await _dbContext.SaveChangesAsync();
+                var result = await _authService.RegisterAsync(request);
+                if (result == null)
+                    return BadRequest("User with this email already exists.");
 
                 _logger.LogInformation("New user registered: {Email}", request.Email);
 
                 return Ok(new { 
                     message = "User registered successfully.",
-                    userId = newUser.Id,
-                    email = newUser.Email 
+                    userId = result.UserId,
+                    email = result.Email
                 });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
@@ -91,41 +66,22 @@ namespace SMA.API.Controllers
 
             try
             {
-                // Retrieve user from database
-                var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
-
-                if (user == null || !user.IsActive)
-                {
-                    _logger.LogWarning("Login attempt with invalid email: {Email}", request.Email);
-                    return Unauthorized("Invalid credentials.");
-                }
-
-                // Verify password
-                if (!PasswordHasher.VerifyPassword(request.Password, user.PasswordHash))
-                {
-                    _logger.LogWarning("Login attempt with invalid password for email: {Email}", request.Email);
-                    return Unauthorized("Invalid credentials.");
-                }
-
-                // Update last login timestamp
-                user.LastLogin = DateTime.UtcNow;
-                user.UpdatedAt = DateTime.UtcNow;
-                _dbContext.Users.Update(user);
-                await _dbContext.SaveChangesAsync();
-
-                // Generate JWT token
-                var accessToken = _tokenService.GenerateAccessToken(user);
                 var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-                var refreshToken = await _tokenService.CreateRefreshTokenForUserAsync(user, ip);
+                var result = await _authService.LoginAsync(request, ip);
+                if (result == null)
+                {
+                    _logger.LogWarning("Login attempt with invalid credentials for email: {Email}", request.Email);
+                    return Unauthorized("Invalid credentials.");
+                }
 
-                _logger.LogInformation("User logged in: {Email}", user.Email);
+                _logger.LogInformation("User logged in: {Email}", result.Email);
 
                 return Ok(new { 
-                    token = accessToken,
-                    refreshToken = refreshToken,
-                    role = user.Role,
-                    userId = user.Id,
-                    email = user.Email
+                    token = result.AccessToken,
+                    refreshToken = result.RefreshToken,
+                    role = result.Role,
+                    userId = result.UserId,
+                    email = result.Email
                 });
             }
             catch (Exception ex)

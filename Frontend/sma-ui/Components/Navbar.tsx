@@ -40,6 +40,13 @@ export default function Navbar() {
           )}
 
           <Link
+            href="/orders"
+            className="text-sm font-medium text-slate-700 hover:text-slate-900"
+          >
+            Orders
+          </Link>
+
+          <Link
             href="/cart"
             className="rounded-full bg-slate-900 px-3 py-1.5 text-sm text-white transition hover:bg-slate-700"
           >

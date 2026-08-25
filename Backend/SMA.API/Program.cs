@@ -47,6 +47,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.Configure<SMA.API.Configuration.StripeOptions>(builder.Configuration.GetSection("Stripe"));
 Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 builder.Services.AddScoped<IPaymentService, StripePaymentService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IStripeWebhookService, StripeWebhookService>();
 DependencyInjectionAuth.AddJwtAuthentication(builder.Services, builder.Configuration);
 builder.Services.AddScoped<ITokenService, TokenService>();
 

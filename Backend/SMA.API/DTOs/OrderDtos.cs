@@ -22,6 +22,15 @@
         public DateTime CreatedAt { get; set; }
     }
 
+    public class PagedOrderResponseDto
+    {
+        public List<OrderResponseDto> Items { get; set; } = [];
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public int TotalCount { get; set; }
+        public int TotalPages { get; set; }
+    }
+
     public class CheckoutResponseDto : OrderResponseDto
     {
         public string CheckoutUrl { get; set; } = string.Empty;

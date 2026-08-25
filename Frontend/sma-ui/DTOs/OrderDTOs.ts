@@ -16,6 +16,14 @@ export interface OrderResponseDto {
   createdAt: string;
 }
 
+export interface PagedOrderResponseDto {
+  items: OrderResponseDto[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
 export interface CheckoutResponseDto extends OrderResponseDto {
   checkoutUrl: string;
 }

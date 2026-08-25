@@ -2,6 +2,7 @@ import { api } from "./api/api";
 import {
   CreateOrderRequestDto,
   CheckoutResponseDto,
+  PagedOrderResponseDto,
   OrderResponseDto,
 } from "@/DTOs/OrderDTOs";
 
@@ -14,5 +15,15 @@ export async function checkout(
 
 export async function getOrderById(id: string): Promise<OrderResponseDto> {
   const response = await api.get<OrderResponseDto>(`/orders/${id}`);
+  return response.data;
+}
+
+export async function getOrders(
+  page = 1,
+  pageSize = 10,
+): Promise<PagedOrderResponseDto> {
+  const response = await api.get<PagedOrderResponseDto>("/orders", {
+    params: { page, pageSize },
+  });
   return response.data;
 }

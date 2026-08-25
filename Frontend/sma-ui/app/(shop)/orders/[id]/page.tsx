@@ -41,10 +41,10 @@ export default function OrderDetailPage() {
       <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
         <p className="text-lg text-red-700">{error ?? "Order not found."}</p>
         <Link
-          href="/"
+          href="/orders"
           className="mt-4 inline-block rounded-2xl bg-slate-900 px-6 py-3 text-white transition hover:bg-slate-700"
         >
-          Back to shop
+          Back to orders
         </Link>
       </div>
     );
@@ -101,10 +101,10 @@ export default function OrderDetailPage() {
         </dl>
 
         <Link
-          href="/"
+          href="/orders"
           className="mt-8 block w-full rounded-2xl bg-slate-900 px-4 py-3 text-center text-white transition hover:bg-slate-700"
         >
-          Continue shopping
+          Back to orders
         </Link>
       </div>
     </div>
