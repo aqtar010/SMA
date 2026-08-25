@@ -1,13 +1,14 @@
 import { api } from "./api/api";
 import {
   CreateOrderRequestDto,
+  CheckoutResponseDto,
   OrderResponseDto,
 } from "@/DTOs/OrderDTOs";
 
 export async function checkout(
   request: CreateOrderRequestDto,
-): Promise<OrderResponseDto> {
-  const response = await api.post<OrderResponseDto>("/orders/checkout", request);
+): Promise<CheckoutResponseDto> {
+  const response = await api.post<CheckoutResponseDto>("/orders/checkout", request);
   return response.data;
 }
 

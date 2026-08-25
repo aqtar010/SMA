@@ -5,6 +5,7 @@ using SMA.API.DTOs;
 using SMA.API.Entities;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using SMA.API.Services.ServiceContracts;
 
 namespace SMA.API.Controllers
 {
@@ -14,19 +15,21 @@ namespace SMA.API.Controllers
     public class OrdersController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IPaymentService _paymentService;
 
-        public OrdersController(AppDbContext context)
+        public OrdersController(AppDbContext context, IPaymentService paymentService)
         {
             _context = context;
+            _paymentService = paymentService;
         }
         /// <summary>
         /// POST: api/orders/checkout
         /// Secure transactional endpoint for placing an order and reserving inventory.
         /// </summary>
         [HttpPost("checkout")]
-        public async Task<ActionResult<OrderResponseDto>> CreateOrder([FromBody] CreateOrderRequestDto request)
+        public async Task<ActionResult<CheckoutResponseDto>> CreateOrder([FromBody] CreateOrderRequestDto request)
         {
-            if (request == null || !request.Items.Any())
+            if (request == null || !request.Items.Any() || request.Items.Any(item => item.Quantity <= 0))
             {
                 return BadRequest("Order must contain at least one item.");
             }
@@ -86,16 +89,18 @@ namespace SMA.API.Controllers
                     {
                         ProductId = product.Id,
                         Quantity = itemDto.Quantity,
-                        UnitPrice = product.Price // Snapshot the price at checkout
+                        UnitPrice = product.Price,
+                        Product = product
                     });
                 }
 
                 // 5. Create Order record
                 var order = new Order
                 {
+                    Id = Guid.NewGuid(),
                     UserId = userId,
                     TotalAmount = totalOrderAmount,
-                    Status = "Placed", // Advances the state machine from 'Payment_Pending'
+                    Status = "Payment_Pending",
                     ShippingAddress = request.ShippingAddress,
                     OrderItems = orderItemsToCreate,
                     CreatedAt = DateTime.UtcNow,
@@ -104,19 +109,23 @@ namespace SMA.API.Controllers
 
                 _context.Orders.Add(order);
 
+                var checkoutSession = await _paymentService.CreateCheckoutSessionAsync(order);
+                order.StripeCheckoutSessionId = checkoutSession.Id;
+
                 // 6. Save changes to PostgreSQL
                 await _context.SaveChangesAsync();
 
                 // 7. Commit transaction to make the changes permanent
                 await transaction.CommitAsync();
 
-                var response = new OrderResponseDto
+                var response = new CheckoutResponseDto
                 {
                     OrderId = order.Id,
                     TotalAmount = order.TotalAmount,
                     Status = order.Status,
                     ShippingAddress = order.ShippingAddress,
-                    CreatedAt = order.CreatedAt
+                    CreatedAt = order.CreatedAt,
+                    CheckoutUrl = checkoutSession.Url
                 };
 
                 return CreatedAtAction(nameof(GetOrderById), new { id = order.Id }, response);

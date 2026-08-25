@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
 import CartSummary from "@/Components/CartSummary";
@@ -9,9 +8,7 @@ import { useCartStore } from "@/Store/cartStore";
 import { checkout } from "@/Lib/OrderApis";
 
 export default function CheckoutPage() {
-  const router = useRouter();
   const items = useCartStore((s) => s.items);
-  const clearCart = useCartStore((s) => s.clearCart);
 
   const [shippingAddress, setShippingAddress] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,8 +28,7 @@ export default function CheckoutPage() {
         })),
       });
 
-      clearCart();
-      router.replace(`/orders/${order.orderId}`);
+      window.location.assign(order.checkoutUrl);
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? err.response?.data || err.message

@@ -14,6 +14,10 @@
       - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx
       - ASPNETCORE_Kestrel__Certificates__Default__Password=${PFX_PASSWORD}
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=sma;Username=postgres;Password=${DB_PASSWORD}
+      - Stripe__SecretKey=${STRIPE_SECRET_KEY}
+      - Stripe__WebhookSecret=${STRIPE_WEBHOOK_SECRET}
+      - Stripe__SuccessUrl=${STRIPE_SUCCESS_URL:-http://localhost:3000/orders/{0}}
+      - Stripe__CancelUrl=${STRIPE_CANCEL_URL:-http://localhost:3000/checkout?cancelled=true&orderId={0}}
     user: "0"
     volumes:
       - ./Backend/SMA.API/certs/aspnetapp.pfx:/https/aspnetapp.pfx:ro

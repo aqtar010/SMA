@@ -15,3 +15,7 @@ export interface OrderResponseDto {
   shippingAddress: string;
   createdAt: string;
 }
+
+export interface CheckoutResponseDto extends OrderResponseDto {
+  checkoutUrl: string;
+}

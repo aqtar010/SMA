@@ -30,6 +30,12 @@ export default function AdminNavbar() {
               Products
             </Link>
             <Link
+              href="/admin/orders"
+              className="font-medium text-slate-900"
+            >
+              Orders
+            </Link>
+            <Link
               href="/"
               className="text-slate-600 hover:text-slate-900"
             >

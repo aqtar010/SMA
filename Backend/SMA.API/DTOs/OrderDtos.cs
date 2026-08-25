@@ -21,4 +21,9 @@
         public string ShippingAddress { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
     }
+
+    public class CheckoutResponseDto : OrderResponseDto
+    {
+        public string CheckoutUrl { get; set; } = string.Empty;
+    }
 }

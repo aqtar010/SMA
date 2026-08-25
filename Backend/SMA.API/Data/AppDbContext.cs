@@ -15,6 +15,7 @@ namespace SMA.API.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
+        public DbSet<StripeWebhookEvent> StripeWebhookEvents { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -30,6 +31,8 @@ namespace SMA.API.Data
             modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
             modelBuilder.Entity<Product>().HasIndex(p => p.Sku).IsUnique();
             modelBuilder.Entity<Transaction>().HasIndex(t => t.GatewayTransactionId).IsUnique();
+            modelBuilder.Entity<Order>().HasIndex(o => o.StripeCheckoutSessionId).IsUnique();
+            modelBuilder.Entity<Order>().HasIndex(o => o.StripePaymentIntentId).IsUnique();
 
             // 3. One-to-One: Product & Inventory
             modelBuilder.Entity<Product>()

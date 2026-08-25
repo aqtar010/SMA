@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { getOrderById } from "@/Lib/OrderApis";
 import { OrderResponseDto } from "@/DTOs/OrderDTOs";
+import { useCartStore } from "@/Store/cartStore";
 
 export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params.id as string;
+  const clearCart = useCartStore((s) => s.clearCart);
 
   const [order, setOrder] = useState<OrderResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -19,6 +21,7 @@ export default function OrderDetailPage() {
       try {
         const data = await getOrderById(orderId);
         setOrder(data);
+        if (data.status === "Paid" || data.status === "Placed") clearCart();
       } catch {
         setError("Order not found or you do not have access.");
       } finally {
@@ -27,7 +30,7 @@ export default function OrderDetailPage() {
     }
 
     if (orderId) load();
-  }, [orderId]);
+  }, [clearCart, orderId]);
 
   if (loading) {
     return <p className="text-slate-600">Loading order…</p>;
@@ -51,14 +54,18 @@ export default function OrderDetailPage() {
     <div className="mx-auto max-w-lg">
       <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-            <span className="text-2xl text-emerald-600">✓</span>
+          <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${order.status === "Paid" || order.status === "Placed" ? "bg-emerald-100" : "bg-amber-100"}`}>
+            <span className={`text-2xl ${order.status === "Paid" || order.status === "Placed" ? "text-emerald-600" : "text-amber-600"}`}>
+              {order.status === "Paid" || order.status === "Placed" ? "✓" : "…"}
+            </span>
           </div>
           <h1 className="text-2xl font-semibold text-slate-900">
-            Order placed!
+            {order.status === "Paid" || order.status === "Placed" ? "Order placed" : "Payment processing"}
           </h1>
           <p className="mt-1 text-slate-600">
-            Thank you for your purchase.
+            {order.status === "Paid" || order.status === "Placed"
+              ? "Thank you for your purchase."
+              : "Your order will update after Stripe confirms payment."}
           </p>
         </div>
 
@@ -69,7 +76,7 @@ export default function OrderDetailPage() {
           </div>
           <div className="flex justify-between border-b border-slate-100 pb-3">
             <dt className="text-slate-600">Status</dt>
-            <dd className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-800">
+            <dd className={`rounded-full px-2 py-0.5 font-medium ${order.status === "Paid" || order.status === "Placed" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
               {order.status}
             </dd>
           </div>

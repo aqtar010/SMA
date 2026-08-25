@@ -77,6 +77,8 @@ namespace SMA.API.Entities
         public Guid UserId { get; set; }
         public decimal TotalAmount { get; set; }
         public string Status { get; set; } = "Payment_Pending";
+        public string? StripeCheckoutSessionId { get; set; }
+        public string? StripePaymentIntentId { get; set; }
         public string? TrackingNumber { get; set; }
         public string ShippingAddress { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -144,6 +146,14 @@ namespace SMA.API.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public Order? Order { get; set; }
+    }
+
+    public class StripeWebhookEvent
+    {
+        [Key]
+        public string Id { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public DateTime ProcessedAt { get; set; } = DateTime.UtcNow;
     }
 }
 

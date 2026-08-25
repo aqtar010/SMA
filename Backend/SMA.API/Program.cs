@@ -7,6 +7,24 @@ using SMA.API.Services.ServiceImplementation;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var envFile = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", ".env"));
+if (File.Exists(envFile))
+{
+    DotNetEnv.Env.Load(envFile);
+    builder.Configuration.AddEnvironmentVariables();
+}
+
+var databasePassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
+var configuredConnectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+if (databasePassword is not null && configuredConnectionString is null)
+{
+    builder.Configuration["ConnectionStrings:DefaultConnection"] =
+        $"Host=localhost;Port=7878;Database=sma;Username=postgres;Password={databasePassword}";
+}
+
+builder.Configuration["Stripe:SecretKey"] ??= Environment.GetEnvironmentVariable("STRIPE_SECRET_KEY");
+builder.Configuration["Stripe:WebhookSecret"] ??= Environment.GetEnvironmentVariable("STRIPE_WEBHOOK_SECRET");
+
 // Add services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -26,6 +44,9 @@ builder.Services.AddCors(options =>
 // Configure Entity Framework to use PostgreSQL
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.Configure<SMA.API.Configuration.StripeOptions>(builder.Configuration.GetSection("Stripe"));
+Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
+builder.Services.AddScoped<IPaymentService, StripePaymentService>();
 DependencyInjectionAuth.AddJwtAuthentication(builder.Services, builder.Configuration);
 builder.Services.AddScoped<ITokenService, TokenService>();
 
