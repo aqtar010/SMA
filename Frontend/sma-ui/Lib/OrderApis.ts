@@ -3,6 +3,7 @@ import {
   CreateOrderRequestDto,
   CheckoutResponseDto,
   PagedOrderResponseDto,
+  PagedAdminOrderResponseDto,
   OrderResponseDto,
 } from "@/DTOs/OrderDTOs";
 
@@ -23,6 +24,16 @@ export async function getOrders(
   pageSize = 10,
 ): Promise<PagedOrderResponseDto> {
   const response = await api.get<PagedOrderResponseDto>("/orders", {
+    params: { page, pageSize },
+  });
+  return response.data;
+}
+
+export async function getAdminOrders(
+  page = 1,
+  pageSize = 10,
+): Promise<PagedAdminOrderResponseDto> {
+  const response = await api.get<PagedAdminOrderResponseDto>("/admin/orders", {
     params: { page, pageSize },
   });
   return response.data;

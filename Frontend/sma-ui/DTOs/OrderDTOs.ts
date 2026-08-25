@@ -24,6 +24,20 @@ export interface PagedOrderResponseDto {
   totalPages: number;
 }
 
+export interface AdminOrderResponseDto extends OrderResponseDto {
+  userId: string;
+  customerEmail: string;
+  customerName: string;
+}
+
+export interface PagedAdminOrderResponseDto {
+  items: AdminOrderResponseDto[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
 export interface CheckoutResponseDto extends OrderResponseDto {
   checkoutUrl: string;
 }

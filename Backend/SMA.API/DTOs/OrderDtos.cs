@@ -31,6 +31,22 @@
         public int TotalPages { get; set; }
     }
 
+    public class AdminOrderResponseDto : OrderResponseDto
+    {
+        public Guid UserId { get; set; }
+        public string CustomerEmail { get; set; } = string.Empty;
+        public string CustomerName { get; set; } = string.Empty;
+    }
+
+    public class PagedAdminOrderResponseDto
+    {
+        public List<AdminOrderResponseDto> Items { get; set; } = [];
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public int TotalCount { get; set; }
+        public int TotalPages { get; set; }
+    }
+
     public class CheckoutResponseDto : OrderResponseDto
     {
         public string CheckoutUrl { get; set; } = string.Empty;

@@ -13,14 +13,14 @@ export async function fetchProducts(): Promise<ProductResponseDto[]> {
 }
 
 export async function fetchAdminProducts(): Promise<AdminProductResponseDto[]> {
-  const res = await api.get<AdminProductResponseDto[]>("/products/admin");
+  const res = await api.get<AdminProductResponseDto[]>("/admin/products");
   return res.data;
 }
 
 export async function createProduct(
   dto: CreateProductDto,
 ): Promise<ProductResponseDto> {
-  const res = await api.post<ProductResponseDto>("/products", dto);
+  const res = await api.post<ProductResponseDto>("/admin/products", dto);
   return res.data;
 }
 
@@ -28,7 +28,7 @@ export async function updateProduct(
   id: string,
   dto: UpdateProductDto,
 ): Promise<AdminProductResponseDto> {
-  const res = await api.put<AdminProductResponseDto>(`/products/${id}`, dto);
+  const res = await api.put<AdminProductResponseDto>(`/admin/products/${id}`, dto);
   return res.data;
 }
 
@@ -37,7 +37,7 @@ export async function updateProductStock(
   dto: UpdateStockDto,
 ): Promise<AdminProductResponseDto> {
   const res = await api.patch<AdminProductResponseDto>(
-    `/products/${id}/stock`,
+    `/admin/products/${id}/stock`,
     dto,
   );
   return res.data;

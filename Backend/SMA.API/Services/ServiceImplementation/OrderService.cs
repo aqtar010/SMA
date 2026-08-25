@@ -81,5 +81,30 @@ namespace SMA.API.Services.ServiceImplementation
             OrderId = order.Id, TotalAmount = order.TotalAmount, Status = order.Status,
             ShippingAddress = order.ShippingAddress, CreatedAt = order.CreatedAt
         };
+
+        public async Task<PagedAdminOrderResponseDto> GetAllOrdersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+        {
+            var query = _context.Orders.OrderByDescending(order => order.CreatedAt);
+            var totalCount = await query.CountAsync(cancellationToken);
+            var items = await query.Skip((page - 1) * pageSize).Take(pageSize).Select(order => new AdminOrderResponseDto
+            {
+                OrderId = order.Id,
+                UserId = order.UserId,
+                CustomerEmail = order.User != null ? order.User.Email : string.Empty,
+                CustomerName = order.User != null ? (order.User.FirstName + " " + order.User.LastName).Trim() : "Unknown customer",
+                TotalAmount = order.TotalAmount,
+                Status = order.Status,
+                ShippingAddress = order.ShippingAddress,
+                CreatedAt = order.CreatedAt
+            }).ToListAsync(cancellationToken);
+            return new PagedAdminOrderResponseDto
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+            };
+        }
     }
 }
