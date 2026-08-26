@@ -44,6 +44,15 @@ builder.Services.AddCors(options =>
 // Configure Entity Framework to use PostgreSQL
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+var redisConnectionString = builder.Configuration.GetConnectionString("Redis")
+    ?? throw new InvalidOperationException("Redis connection string is not configured.");
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = redisConnectionString;
+});
+builder.Services.AddSingleton<IProductCache, ProductCache>();
+builder.Services.AddHealthChecks()
+    .AddRedis(redisConnectionString, name: "redis");
 builder.Services.Configure<SMA.API.Configuration.StripeOptions>(builder.Configuration.GetSection("Stripe"));
 Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 builder.Services.AddScoped<IPaymentService, StripePaymentService>();
@@ -83,5 +92,6 @@ app.UseAuthorization();
 
 app.MapHub<ProductHub>("/hubs/productHub");
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();

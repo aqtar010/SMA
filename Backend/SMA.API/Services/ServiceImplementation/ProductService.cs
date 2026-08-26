@@ -12,21 +12,31 @@ namespace SMA.API.Services.ServiceImplementation
     {
         private readonly AppDbContext _context;
         private readonly IHubContext<ProductHub> _hubContext;
+        private readonly IProductCache _productCache;
 
-        public ProductService(AppDbContext context, IHubContext<ProductHub> hubContext)
+        public ProductService(AppDbContext context, IHubContext<ProductHub> hubContext, IProductCache productCache)
         {
             _context = context;
             _hubContext = hubContext;
+            _productCache = productCache;
         }
 
-        public async Task<IReadOnlyList<ProductResponseDto>> GetProductsAsync(CancellationToken cancellationToken = default) =>
-            await _context.Products.Where(product => product.IsActive)
+        public async Task<IReadOnlyList<ProductResponseDto>> GetProductsAsync(CancellationToken cancellationToken = default)
+        {
+            var cachedProducts = await _productCache.GetActiveProductsAsync(cancellationToken);
+            if (cachedProducts != null)
+                return cachedProducts;
+
+            var products = await _context.Products.Where(product => product.IsActive)
                 .Select(product => new ProductResponseDto
                 {
                     Id = product.Id, Sku = product.Sku, Name = product.Name,
                     Description = product.Description, Price = product.Price,
                     QuantityAvailable = product.Inventory == null ? 0 : product.Inventory.QuantityAvailable
                 }).ToListAsync(cancellationToken);
+            await _productCache.SetActiveProductsAsync(products, cancellationToken);
+            return products;
+        }
 
         public async Task<ProductResponseDto?> CreateProductAsync(CreateProductDto request, CancellationToken cancellationToken = default)
         {
@@ -40,11 +50,17 @@ namespace SMA.API.Services.ServiceImplementation
             };
             _context.Products.Add(product);
             await _context.SaveChangesAsync(cancellationToken);
+            await _productCache.InvalidateActiveProductsAsync(cancellationToken);
             return MapProduct(product);
         }
 
-        public async Task<IReadOnlyList<AdminProductResponseDto>> GetAdminProductsAsync(CancellationToken cancellationToken = default) =>
-            await _context.Products.OrderByDescending(product => product.UpdatedAt)
+        public async Task<IReadOnlyList<AdminProductResponseDto>> GetAdminProductsAsync(CancellationToken cancellationToken = default)
+        {
+            var cachedProducts = await _productCache.GetAdminProductsAsync(cancellationToken);
+            if (cachedProducts != null)
+                return cachedProducts;
+
+            var products = await _context.Products.OrderByDescending(product => product.UpdatedAt)
                 .Select(product => new AdminProductResponseDto
                 {
                     Id = product.Id, Sku = product.Sku, Name = product.Name,
@@ -53,6 +69,9 @@ namespace SMA.API.Services.ServiceImplementation
                     QuantityReserved = product.Inventory == null ? 0 : product.Inventory.QuantityReserved,
                     CreatedAt = product.CreatedAt, UpdatedAt = product.UpdatedAt
                 }).ToListAsync(cancellationToken);
+            await _productCache.SetAdminProductsAsync(products, cancellationToken);
+            return products;
+        }
 
         public async Task<AdminProductResponseDto?> UpdateProductAsync(Guid id, UpdateProductDto request, CancellationToken cancellationToken = default)
         {
@@ -70,6 +89,7 @@ namespace SMA.API.Services.ServiceImplementation
             if (request.IsActive.HasValue) product.IsActive = request.IsActive.Value;
             product.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
+            await _productCache.InvalidateActiveProductsAsync(cancellationToken);
             await PublishUpdateAsync(product);
             return MapAdminProduct(product);
         }
@@ -89,6 +109,7 @@ namespace SMA.API.Services.ServiceImplementation
             product.Inventory.UpdatedAt = DateTime.UtcNow;
             product.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
+            await _productCache.InvalidateActiveProductsAsync(cancellationToken);
             await PublishUpdateAsync(product);
             return MapAdminProduct(product);
         }

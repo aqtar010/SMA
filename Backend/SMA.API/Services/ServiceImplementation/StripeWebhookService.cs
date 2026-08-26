@@ -12,11 +12,13 @@ namespace SMA.API.Services.ServiceImplementation
     {
         private readonly AppDbContext _context;
         private readonly ILogger<StripeWebhookService> _logger;
+        private readonly IProductCache _productCache;
 
-        public StripeWebhookService(AppDbContext context, ILogger<StripeWebhookService> logger)
+        public StripeWebhookService(AppDbContext context, ILogger<StripeWebhookService> logger, IProductCache productCache)
         {
             _context = context;
             _logger = logger;
+            _productCache = productCache;
         }
 
         public async Task<bool> ProcessAsync(Event stripeEvent, string payload, CancellationToken cancellationToken = default)
@@ -41,6 +43,13 @@ namespace SMA.API.Services.ServiceImplementation
             }
             _context.StripeWebhookEvents.Add(new StripeWebhookEvent { Id = stripeEvent.Id, Type = stripeEvent.Type });
             await _context.SaveChangesAsync(cancellationToken);
+            if (stripeEvent.Type is EventTypes.CheckoutSessionCompleted
+                or EventTypes.CheckoutSessionAsyncPaymentSucceeded
+                or EventTypes.CheckoutSessionAsyncPaymentFailed
+                or EventTypes.CheckoutSessionExpired)
+            {
+                await _productCache.InvalidateActiveProductsAsync(cancellationToken);
+            }
             return true;
         }
 

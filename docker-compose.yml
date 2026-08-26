@@ -14,6 +14,7 @@
       - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx
       - ASPNETCORE_Kestrel__Certificates__Default__Password=${PFX_PASSWORD}
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=sma;Username=postgres;Password=${DB_PASSWORD}
+      - ConnectionStrings__Redis=redis:6379
       - Stripe__SecretKey=${STRIPE_SECRET_KEY}
       - Stripe__WebhookSecret=${STRIPE_WEBHOOK_SECRET}
       - Stripe__SuccessUrl=${STRIPE_SUCCESS_URL:-http://localhost:3000/orders/{0}}
@@ -22,7 +23,23 @@
     volumes:
       - ./Backend/SMA.API/certs/aspnetapp.pfx:/https/aspnetapp.pfx:ro
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./Frontend/sma-ui
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8080/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_started
     restart: unless-stopped
 
   db:
@@ -39,6 +56,17 @@
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d sma"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

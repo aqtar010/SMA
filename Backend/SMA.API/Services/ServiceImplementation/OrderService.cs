@@ -10,11 +10,13 @@ namespace SMA.API.Services.ServiceImplementation
     {
         private readonly AppDbContext _context;
         private readonly IPaymentService _paymentService;
+        private readonly IProductCache _productCache;
 
-        public OrderService(AppDbContext context, IPaymentService paymentService)
+        public OrderService(AppDbContext context, IPaymentService paymentService, IProductCache productCache)
         {
             _context = context;
             _paymentService = paymentService;
+            _productCache = productCache;
         }
 
         public async Task<CheckoutResponseDto> CreateOrderAsync(Guid userId, CreateOrderRequestDto request, CancellationToken cancellationToken = default)
@@ -52,6 +54,7 @@ namespace SMA.API.Services.ServiceImplementation
             order.StripeCheckoutSessionId = checkoutSession.Id;
             await _context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            await _productCache.InvalidateActiveProductsAsync(cancellationToken);
 
             return new CheckoutResponseDto
             {
