@@ -146,3 +146,4 @@ TestResults/
 !.yarn/sdks
 !.yarn/versions
 .pnp.*
+Frontend/sma-ui/NUL

@@ -19,10 +19,13 @@ export default function AdminNavbar() {
     <header className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
         <div className="flex items-center gap-6">
-          <Link href="/admin/products" className="text-lg font-semibold text-slate-900">
+          <Link href="/admin" className="text-lg font-semibold text-slate-900">
             SMA Admin
           </Link>
           <nav className="hidden gap-4 text-sm sm:flex">
+            <Link href="/admin" className="font-medium text-slate-900">
+              Dashboard
+            </Link>
             <Link
               href="/admin/products"
               className="font-medium text-slate-900"
