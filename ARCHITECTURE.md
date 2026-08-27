@@ -287,7 +287,7 @@ The frontend hook [useProductHub.ts](Frontend/sma-ui/Lib/signalR/useProductHub.t
 
 `ProductService` publishes updates to the product-specific group and the global `products` group after admin product or stock changes.
 
-There is currently no Redis SignalR backplane. This means broadcasts are process-local if the API is later scaled to multiple instances. Redis is currently used only for application caching.
+SignalR uses Redis as a backplane with the `sma-signalr` channel prefix, so product broadcasts are shared when the API runs on multiple instances. Redis is also used for application caching.
 
 ## 12. Frontend Architecture
 

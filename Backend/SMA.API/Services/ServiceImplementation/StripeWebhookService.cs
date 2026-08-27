@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using SMA.API.Data;
 using SMA.API.Entities;
@@ -23,7 +24,20 @@ namespace SMA.API.Services.ServiceImplementation
 
         public async Task<bool> ProcessAsync(Event stripeEvent, string payload, CancellationToken cancellationToken = default)
         {
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
             if (await _context.StripeWebhookEvents.AnyAsync(item => item.Id == stripeEvent.Id, cancellationToken)) return false;
+
+            _context.StripeWebhookEvents.Add(new StripeWebhookEvent { Id = stripeEvent.Id, Type = stripeEvent.Type });
+            try
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException exception) when (exception.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+            {
+                _logger.LogInformation("Ignoring duplicate Stripe webhook event {EventId}.", stripeEvent.Id);
+                return false;
+            }
+
             switch (stripeEvent.Type)
             {
                 case EventTypes.CheckoutSessionCompleted:
@@ -41,8 +55,9 @@ namespace SMA.API.Services.ServiceImplementation
                     _logger.LogInformation("Ignoring unsupported Stripe event {EventId} of type {EventType}.", stripeEvent.Id, stripeEvent.Type);
                     break;
             }
-            _context.StripeWebhookEvents.Add(new StripeWebhookEvent { Id = stripeEvent.Id, Type = stripeEvent.Type });
+
             await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
             if (stripeEvent.Type is EventTypes.CheckoutSessionCompleted
                 or EventTypes.CheckoutSessionAsyncPaymentSucceeded
                 or EventTypes.CheckoutSessionAsyncPaymentFailed

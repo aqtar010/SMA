@@ -81,7 +81,7 @@ namespace SMA.API.Services.ServiceImplementation
             return token; // plain token returned to client
         }
 
-        public async Task<(string AccessToken, string RefreshToken)> RotateRefreshTokenAsync(string refreshToken, string ipAddress)
+        public async Task<(string AccessToken, string RefreshToken, User User)> RotateRefreshTokenAsync(string refreshToken, string ipAddress)
         {
             if (string.IsNullOrEmpty(refreshToken))
                 throw new ArgumentException("Refresh token is required.", nameof(refreshToken));
@@ -117,7 +117,7 @@ namespace SMA.API.Services.ServiceImplementation
             // create access token
             var accessToken = GenerateAccessToken(stored.User!);
 
-            return (accessToken, newToken);
+            return (accessToken, newToken, stored.User!);
         }
 
         public async Task<bool> RevokeRefreshTokenAsync(string refreshToken, string ipAddress)

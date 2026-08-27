@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis;
 using SMA.API.Configuration;
 using SMA.API.Data;
 using SMA.API.Hubs;
@@ -28,7 +29,13 @@ builder.Configuration["Stripe:WebhookSecret"] ??= Environment.GetEnvironmentVari
 // Add services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSignalR();
+var redisConnectionString = builder.Configuration.GetConnectionString("Redis")
+    ?? throw new InvalidOperationException("Redis connection string is not configured.");
+builder.Services.AddSignalR()
+    .AddStackExchangeRedis(redisConnectionString, options =>
+    {
+        options.Configuration.ChannelPrefix = RedisChannel.Literal("sma-signalr");
+    });
 DependencyInjectionSwagger.AddSwaggerDocumentation(builder.Services);
 
 builder.Services.AddCors(options =>
@@ -44,8 +51,6 @@ builder.Services.AddCors(options =>
 // Configure Entity Framework to use PostgreSQL
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-var redisConnectionString = builder.Configuration.GetConnectionString("Redis")
-    ?? throw new InvalidOperationException("Redis connection string is not configured.");
 builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = redisConnectionString;

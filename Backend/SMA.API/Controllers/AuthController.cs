@@ -8,6 +8,7 @@ namespace SMA.API.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
+        private const string RefreshCookieName = "sma_refresh_token";
         private readonly ILogger<AuthController> _logger;
         private readonly IAuthService _authService;
         private readonly ITokenService _tokenService;
@@ -76,9 +77,9 @@ namespace SMA.API.Controllers
 
                 _logger.LogInformation("User logged in: {Email}", result.Email);
 
+                SetRefreshCookie(result.RefreshToken);
                 return Ok(new { 
                     token = result.AccessToken,
-                    refreshToken = result.RefreshToken,
                     role = result.Role,
                     userId = result.UserId,
                     email = result.Email
@@ -92,15 +93,17 @@ namespace SMA.API.Controllers
         }
 
         [HttpPost("refresh")]
-        public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
+        public async Task<IActionResult> Refresh()
         {
-            if (string.IsNullOrEmpty(request.RefreshToken)) return BadRequest("RefreshToken is required.");
+            var refreshToken = Request.Cookies[RefreshCookieName];
+            if (string.IsNullOrEmpty(refreshToken)) return BadRequest("RefreshToken is required.");
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
             try
             {
-                var (accessToken, refreshToken) = await _tokenService.RotateRefreshTokenAsync(request.RefreshToken, ip);
-                return Ok(new { token = accessToken, refreshToken = refreshToken });
+                var (accessToken, newRefreshToken, user) = await _tokenService.RotateRefreshTokenAsync(refreshToken, ip);
+                SetRefreshCookie(newRefreshToken);
+                return Ok(new { token = accessToken, role = user.Role, email = user.Email });
             }
             catch (InvalidOperationException ex)
             {
@@ -110,14 +113,28 @@ namespace SMA.API.Controllers
         }
 
         [HttpPost("revoke")]
-        public async Task<IActionResult> Revoke([FromBody] RevokeRequest request)
+        public async Task<IActionResult> Revoke()
         {
-            if (string.IsNullOrEmpty(request.RefreshToken)) return BadRequest("RefreshToken is required.");
+            var refreshToken = Request.Cookies[RefreshCookieName];
+            if (string.IsNullOrEmpty(refreshToken)) return BadRequest("RefreshToken is required.");
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-            var success = await _tokenService.RevokeRefreshTokenAsync(request.RefreshToken, ip);
+            var success = await _tokenService.RevokeRefreshTokenAsync(refreshToken, ip);
             if (!success) return NotFound("Token not found or already revoked.");
+            Response.Cookies.Delete(RefreshCookieName, new CookieOptions { Path = "/api/auth" });
             return Ok(new { message = "Token revoked." });
+        }
+
+        private void SetRefreshCookie(string refreshToken)
+        {
+            Response.Cookies.Append(RefreshCookieName, refreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = !HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment(),
+                SameSite = SameSiteMode.Lax,
+                Expires = DateTimeOffset.UtcNow.AddDays(30),
+                Path = "/api/auth"
+            });
         }
     }
 }

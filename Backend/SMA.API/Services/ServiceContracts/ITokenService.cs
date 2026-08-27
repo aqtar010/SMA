@@ -7,7 +7,7 @@ namespace SMA.API.Services.ServiceContracts
         string GenerateAccessToken(User user);
         (string Token, string TokenHash) GenerateRefreshTokenStringAndHash();
         Task<string> CreateRefreshTokenForUserAsync(User user, string createdByIp, int ttlDays = 30);
-        Task<(string AccessToken, string RefreshToken)> RotateRefreshTokenAsync(string refreshToken, string ipAddress);
+        Task<(string AccessToken, string RefreshToken, User User)> RotateRefreshTokenAsync(string refreshToken, string ipAddress);
         Task<bool> RevokeRefreshTokenAsync(string refreshToken, string ipAddress);
 
     }
