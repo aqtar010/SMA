@@ -5,6 +5,9 @@ import {
   ProductResponseDto,
   UpdateProductDto,
   UpdateStockDto,
+  CreateProductRatingDto,
+  ProductRatingSummaryDto,
+  PagedProductRatingResponseDto,
 } from "@/DTOs/ProductDTOs";
 
 export async function fetchProducts(): Promise<ProductResponseDto[]> {
@@ -40,5 +43,31 @@ export async function updateProductStock(
     `/admin/products/${id}/stock`,
     dto,
   );
+  return res.data;
+}
+
+export async function getProductRatingSummary(
+  id: string,
+): Promise<ProductRatingSummaryDto> {
+  const res = await api.get<ProductRatingSummaryDto>(`/products/${id}/ratings`);
+  return res.data;
+}
+
+export async function saveProductRating(
+  id: string,
+  dto: CreateProductRatingDto,
+): Promise<ProductRatingSummaryDto> {
+  const res = await api.post<ProductRatingSummaryDto>(`/products/${id}/ratings`, dto);
+  return res.data;
+}
+
+export async function getAdminProductRatings(
+  id: string,
+  page = 1,
+  pageSize = 10,
+): Promise<PagedProductRatingResponseDto> {
+  const res = await api.get<PagedProductRatingResponseDto>(`/admin/products/${id}/ratings`, {
+    params: { page, pageSize },
+  });
   return res.data;
 }

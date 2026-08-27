@@ -132,6 +132,58 @@ namespace SMA.API.Services.ServiceImplementation
             Price = product.Price, QuantityAvailable = product.Inventory?.QuantityAvailable ?? 0
         };
 
+        public async Task<ProductRatingSummaryDto?> GetRatingSummaryAsync(Guid productId, Guid userId, CancellationToken cancellationToken = default)
+        {
+            if (!await _context.Products.AnyAsync(product => product.Id == productId, cancellationToken)) return null;
+            var ratings = _context.ProductRatings.Where(rating => rating.ProductId == productId);
+            var currentUserRating = await ratings.Where(rating => rating.UserId == userId).Select(rating => (int?)rating.Rating).FirstOrDefaultAsync(cancellationToken);
+            var average = await ratings.Select(rating => (double?)rating.Rating).AverageAsync(cancellationToken) ?? 0;
+            var canRate = await _context.Orders.AnyAsync(order => order.UserId == userId
+                && (order.Status == "Paid" || order.Status == "Placed")
+                && order.OrderItems.Any(item => item.ProductId == productId), cancellationToken);
+            return new ProductRatingSummaryDto
+            {
+                AverageRating = Math.Round(average, 2), RatingCount = await ratings.CountAsync(cancellationToken),
+                CurrentUserRating = currentUserRating, CanRate = canRate
+            };
+        }
+
+        public async Task<ProductRatingSummaryDto> SaveRatingAsync(Guid productId, Guid userId, CreateProductRatingDto request, CancellationToken cancellationToken = default)
+        {
+            var canRate = await _context.Orders.AnyAsync(order => order.UserId == userId
+                && (order.Status == "Paid" || order.Status == "Placed")
+                && order.OrderItems.Any(item => item.ProductId == productId), cancellationToken);
+            if (!canRate) throw new UnauthorizedAccessException("Only customers who purchased this product can rate it.");
+            if (!await _context.Products.AnyAsync(product => product.Id == productId && product.IsActive, cancellationToken)) throw new KeyNotFoundException("Product not found.");
+
+            var rating = await _context.ProductRatings.FirstOrDefaultAsync(item => item.ProductId == productId && item.UserId == userId, cancellationToken);
+            if (rating == null)
+            {
+                rating = new ProductRating { ProductId = productId, UserId = userId };
+                _context.ProductRatings.Add(rating);
+            }
+            rating.Rating = request.Rating;
+            rating.Feedback = string.IsNullOrWhiteSpace(request.Feedback) ? null : request.Feedback.Trim();
+            rating.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync(cancellationToken);
+            return (await GetRatingSummaryAsync(productId, userId, cancellationToken))!;
+        }
+
+        public async Task<PagedProductRatingResponseDto?> GetAdminRatingsAsync(Guid productId, int page, int pageSize, CancellationToken cancellationToken = default)
+        {
+            if (!await _context.Products.AnyAsync(product => product.Id == productId, cancellationToken)) return null;
+            var query = _context.ProductRatings.Where(rating => rating.ProductId == productId).OrderByDescending(rating => rating.CreatedAt);
+            var totalCount = await query.CountAsync(cancellationToken);
+            var items = await query.Skip((page - 1) * pageSize).Take(pageSize).Select(rating => new ProductRatingResponseDto
+            {
+                Id = rating.Id, ProductId = rating.ProductId, ProductName = rating.Product!.Name,
+                CustomerName = rating.User == null ? "Unknown customer" : (rating.User.FirstName + " " + rating.User.LastName).Trim(),
+                CustomerEmail = rating.User == null ? string.Empty : rating.User.Email, Rating = rating.Rating,
+                Feedback = rating.Feedback, CreatedAt = rating.CreatedAt, UpdatedAt = rating.UpdatedAt
+            }).ToListAsync(cancellationToken);
+            return new PagedProductRatingResponseDto { Items = items, Page = page, PageSize = pageSize, TotalCount = totalCount, TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize) };
+        }
+
         private static AdminProductResponseDto MapAdminProduct(Product product) => new()
         {
             Id = product.Id, Sku = product.Sku, Name = product.Name, Description = product.Description,

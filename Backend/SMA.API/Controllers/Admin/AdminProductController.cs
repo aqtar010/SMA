@@ -49,5 +49,12 @@ namespace SMA.API.Controllers.Admin
             }
             catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
         }
+
+        [HttpGet("{id:guid}/ratings")]
+        public async Task<ActionResult<PagedProductRatingResponseDto>> GetRatings(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
+        {
+            var ratings = await _productService.GetAdminRatingsAsync(id, Math.Max(page, 1), Math.Clamp(pageSize, 1, 50), cancellationToken);
+            return ratings == null ? NotFound("Product not found.") : Ok(ratings);
+        }
     }
 }

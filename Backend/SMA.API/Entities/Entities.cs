@@ -57,6 +57,23 @@ namespace SMA.API.Entities
 
         // Navigation Property: 1-to-1 relationship with Inventory
         public Inventory? Inventory { get; set; }
+        public ICollection<ProductRating> Ratings { get; set; } = new List<ProductRating>();
+    }
+
+    public class ProductRating
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid ProductId { get; set; }
+        public Guid UserId { get; set; }
+        public int Rating { get; set; }
+        [MaxLength(2000)]
+        public string? Feedback { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        public Product? Product { get; set; }
+        public User? User { get; set; }
     }
 
     public class Inventory

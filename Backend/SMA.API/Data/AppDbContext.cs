@@ -16,6 +16,7 @@ namespace SMA.API.Data
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<StripeWebhookEvent> StripeWebhookEvents { get; set; }
+        public DbSet<ProductRating> ProductRatings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -40,6 +41,18 @@ namespace SMA.API.Data
                 .WithOne(i => i.Product)
                 .HasForeignKey<Inventory>(i => i.ProductId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ProductRating>().HasIndex(rating => new { rating.ProductId, rating.UserId }).IsUnique();
+            modelBuilder.Entity<ProductRating>()
+                .HasOne(rating => rating.Product)
+                .WithMany(product => product.Ratings)
+                .HasForeignKey(rating => rating.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<ProductRating>()
+                .HasOne(rating => rating.User)
+                .WithMany()
+                .HasForeignKey(rating => rating.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             // 4. One-to-Many: Order & OrderItems
             modelBuilder.Entity<Order>()

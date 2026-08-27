@@ -39,6 +39,12 @@ export default function AdminNavbar() {
               Orders
             </Link>
             <Link
+              href="/admin/ratings"
+              className="font-medium text-slate-900"
+            >
+              Ratings
+            </Link>
+            <Link
               href="/"
               className="text-slate-600 hover:text-slate-900"
             >
