@@ -34,6 +34,11 @@ namespace SMA.API.Data
             modelBuilder.Entity<Transaction>().HasIndex(t => t.GatewayTransactionId).IsUnique();
             modelBuilder.Entity<Order>().HasIndex(o => o.StripeCheckoutSessionId).IsUnique();
             modelBuilder.Entity<Order>().HasIndex(o => o.StripePaymentIntentId).IsUnique();
+            modelBuilder.Entity<Order>().HasIndex(o => new { o.UserId, o.IdempotencyKey }).IsUnique();
+            modelBuilder.Entity<Order>().HasIndex(o => new { o.UserId, o.CreatedAt });
+            modelBuilder.Entity<Order>().HasIndex(o => new { o.Status, o.CreatedAt });
+            modelBuilder.Entity<OrderItem>().HasIndex(item => new { item.ProductId, item.OrderId });
+            modelBuilder.Entity<ProductRating>().HasIndex(rating => new { rating.ProductId, rating.CreatedAt });
 
             // 3. One-to-One: Product & Inventory
             modelBuilder.Entity<Product>()

@@ -62,7 +62,11 @@ export default function AdminProductsPage() {
   }
 
   useEffect(() => {
-    loadProducts();
+    const fetchTask = window.setTimeout(() => {
+      loadProducts();
+    }, 0);
+
+    return () => window.clearTimeout(fetchTask);
   }, []);
 
   function showSuccess(message: string) {

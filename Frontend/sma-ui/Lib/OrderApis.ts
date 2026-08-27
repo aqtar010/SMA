@@ -5,12 +5,16 @@ import {
   PagedOrderResponseDto,
   PagedAdminOrderResponseDto,
   OrderResponseDto,
+  AdminAnalyticsDto,
 } from "@/DTOs/OrderDTOs";
 
 export async function checkout(
   request: CreateOrderRequestDto,
+  idempotencyKey: string,
 ): Promise<CheckoutResponseDto> {
-  const response = await api.post<CheckoutResponseDto>("/orders/checkout", request);
+  const response = await api.post<CheckoutResponseDto>("/orders/checkout", request, {
+    headers: { "Idempotency-Key": idempotencyKey },
+  });
   return response.data;
 }
 
@@ -35,6 +39,13 @@ export async function getAdminOrders(
 ): Promise<PagedAdminOrderResponseDto> {
   const response = await api.get<PagedAdminOrderResponseDto>("/admin/orders", {
     params: { page, pageSize },
+  });
+  return response.data;
+}
+
+export async function getAdminAnalytics(days = 7): Promise<AdminAnalyticsDto> {
+  const response = await api.get<AdminAnalyticsDto>("/admin/analytics", {
+    params: { days },
   });
   return response.data;
 }

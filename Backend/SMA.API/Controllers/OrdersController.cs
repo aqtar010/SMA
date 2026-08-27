@@ -25,7 +25,9 @@ namespace SMA.API.Controllers
 
             try
             {
-                var result = await _orderService.CreateOrderAsync(userId, request, cancellationToken);
+                var idempotencyKey = Request.Headers["Idempotency-Key"].ToString();
+                if (idempotencyKey.Length > 100) return BadRequest("Idempotency-Key must be 100 characters or fewer.");
+                var result = await _orderService.CreateOrderAsync(userId, request, idempotencyKey, cancellationToken);
                 return CreatedAtAction(nameof(GetOrderById), new { id = result.OrderId }, result);
             }
             catch (InvalidOperationException ex) { return BadRequest(ex.Message); }

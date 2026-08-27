@@ -3,16 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { AdminOrderResponseDto } from "@/DTOs/OrderDTOs";
-import { AdminProductResponseDto } from "@/DTOs/ProductDTOs";
-import { getAdminOrders } from "@/Lib/OrderApis";
-import { fetchAdminProducts } from "@/Lib/ProductApis";
-
-const paidStatuses = new Set(["paid", "placed"]);
-
-function isPaid(status: string) {
-  return paidStatuses.has(status.toLowerCase());
-}
+import { AdminAnalyticsDto, AdminOrderResponseDto } from "@/DTOs/OrderDTOs";
+import { getAdminAnalytics, getAdminOrders } from "@/Lib/OrderApis";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -41,21 +33,9 @@ function statusClassName(status: string) {
   return "bg-amber-100 text-amber-800";
 }
 
-async function loadAllOrders() {
-  const firstPage = await getAdminOrders(1, 50);
-  if (firstPage.totalPages <= 1) return firstPage.items;
-
-  const remainingPages = await Promise.all(
-    Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
-      getAdminOrders(index + 2, 50),
-    ),
-  );
-  return [firstPage.items, ...remainingPages.map((page) => page.items)].flat();
-}
-
 export default function AdminDashboardPage() {
   const [orders, setOrders] = useState<AdminOrderResponseDto[]>([]);
-  const [products, setProducts] = useState<AdminProductResponseDto[]>([]);
+  const [analytics, setAnalytics] = useState<AdminAnalyticsDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,12 +43,12 @@ export default function AdminDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const [loadedOrders, loadedProducts] = await Promise.all([
-        loadAllOrders(),
-        fetchAdminProducts(),
+      const [loadedOrders, loadedAnalytics] = await Promise.all([
+        getAdminOrders(1, 5),
+        getAdminAnalytics(7),
       ]);
-      setOrders(loadedOrders);
-      setProducts(loadedProducts);
+      setOrders(loadedOrders.items);
+      setAnalytics(loadedAnalytics);
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? err.response?.data || err.message
@@ -91,41 +71,17 @@ export default function AdminDashboardPage() {
     return <p className="text-slate-600">Loading dashboard...</p>;
   }
 
-  const paidOrders = orders.filter((order) => isPaid(order.status));
-  const revenue = paidOrders.reduce((total, order) => total + order.totalAmount, 0);
-  const averageOrder = paidOrders.length ? revenue / paidOrders.length : 0;
-  const activeProducts = products.filter((product) => product.isActive);
-  const lowStockProducts = activeProducts.filter(
-    (product) => product.quantityAvailable <= 5,
-  );
-  const inventoryValue = activeProducts.reduce(
-    (total, product) => total + product.price * product.quantityAvailable,
-    0,
-  );
-  const statusCounts = orders.reduce<Record<string, number>>((counts, order) => {
-    const status = order.status.toLowerCase();
-    counts[status] = (counts[status] ?? 0) + 1;
-    return counts;
-  }, {});
+  if (!analytics) return <p className="text-slate-600">No analytics available.</p>;
+
+  const statusCounts = analytics.orderStatusCounts;
   const maxStatusCount = Math.max(...Object.values(statusCounts), 1);
   const recentOrders = [...orders]
     .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
     .slice(0, 5);
-  const lastSevenDays = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date();
-    date.setHours(0, 0, 0, 0);
-    date.setDate(date.getDate() - (6 - index));
-    const nextDate = new Date(date);
-    nextDate.setDate(nextDate.getDate() + 1);
-    const dayOrders = paidOrders.filter((order) => {
-      const createdAt = Date.parse(order.createdAt);
-      return createdAt >= date.getTime() && createdAt < nextDate.getTime();
-    });
-    return {
-      label: date.toLocaleDateString(undefined, { weekday: "short" }),
-      amount: dayOrders.reduce((total, order) => total + order.totalAmount, 0),
-    };
-  });
+  const lastSevenDays = analytics.dailySales.map((day) => ({
+    label: new Date(day.date).toLocaleDateString(undefined, { weekday: "short" }),
+    amount: day.amount,
+  }));
   const maxDailyRevenue = Math.max(...lastSevenDays.map((day) => day.amount), 1);
 
   return (
@@ -157,10 +113,10 @@ export default function AdminDashboardPage() {
       )}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Key metrics">
-        <Metric label="Gross sales" value={formatCurrency(revenue)} detail={`${paidOrders.length} paid orders`} accent="teal" />
-        <Metric label="All orders" value={orders.length.toLocaleString()} detail={`${Object.keys(statusCounts).length} statuses`} accent="blue" />
-        <Metric label="Average order" value={formatCurrency(averageOrder)} detail="Across paid orders" accent="amber" />
-        <Metric label="Inventory value" value={formatCurrency(inventoryValue)} detail={`${activeProducts.length} active products`} accent="rose" />
+        <Metric label="Gross sales" value={formatCurrency(analytics.grossSales)} detail={`${analytics.paidOrderCount} paid orders`} accent="teal" />
+        <Metric label="All orders" value={analytics.orderCount.toLocaleString()} detail={`${Object.keys(statusCounts).length} statuses`} accent="blue" />
+        <Metric label="Average order" value={formatCurrency(analytics.averageOrderValue)} detail="Across paid orders" accent="amber" />
+        <Metric label="Inventory value" value={formatCurrency(analytics.inventoryValue)} detail={`${analytics.activeProductCount} active products`} accent="rose" />
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
@@ -202,13 +158,11 @@ export default function AdminDashboardPage() {
       <section className="grid gap-6 lg:grid-cols-[1fr_1.35fr]">
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
           <div className="flex items-start justify-between gap-4">
-            <div><h2 className="text-lg font-semibold text-slate-950">Inventory attention</h2><p className="mt-1 text-sm text-slate-600">{lowStockProducts.length} active products need a look.</p></div>
+            <div><h2 className="text-lg font-semibold text-slate-950">Inventory attention</h2><p className="mt-1 text-sm text-slate-600">{analytics.lowStockProductCount} active products need a look.</p></div>
             <Link href="/admin/products" className="text-sm font-semibold text-teal-800 hover:underline">Manage</Link>
           </div>
           <div className="mt-5 space-y-3">
-            {lowStockProducts.length === 0 ? <p className="text-sm text-slate-600">Everything is comfortably stocked.</p> : lowStockProducts.slice(0, 4).map((product) => (
-              <div key={product.id} className="flex items-center justify-between border-b border-amber-200 pb-3 text-sm last:border-0 last:pb-0"><span className="font-medium text-slate-800">{product.name}</span><span className="font-semibold text-amber-800">{product.quantityAvailable} left</span></div>
-            ))}
+            {analytics.lowStockProductCount === 0 ? <p className="text-sm text-slate-600">Everything is comfortably stocked.</p> : <p className="text-sm text-slate-600">Open product management to review low-stock items.</p>}
           </div>
         </div>
 

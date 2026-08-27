@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import axios from "axios";
 import CartSummary from "@/Components/CartSummary";
@@ -13,6 +13,7 @@ export default function CheckoutPage() {
   const [shippingAddress, setShippingAddress] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -20,13 +21,17 @@ export default function CheckoutPage() {
     setLoading(true);
 
     try {
+      const idempotencyKey =
+        idempotencyKeyRef.current ??
+        (idempotencyKeyRef.current = crypto.randomUUID());
+
       const order = await checkout({
         shippingAddress: shippingAddress.trim(),
         items: items.map((item) => ({
           productId: item.id,
           quantity: item.quantity,
         })),
-      });
+      }, idempotencyKey);
 
       window.location.assign(order.checkoutUrl);
     } catch (err) {

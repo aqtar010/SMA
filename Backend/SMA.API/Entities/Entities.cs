@@ -95,6 +95,9 @@ namespace SMA.API.Entities
         public decimal TotalAmount { get; set; }
         public string Status { get; set; } = "Payment_Pending";
         public string? StripeCheckoutSessionId { get; set; }
+        [MaxLength(100)]
+        public string? IdempotencyKey { get; set; }
+        public string? StripeCheckoutUrl { get; set; }
         public string? StripePaymentIntentId { get; set; }
         public string? TrackingNumber { get; set; }
         public string ShippingAddress { get; set; } = string.Empty;

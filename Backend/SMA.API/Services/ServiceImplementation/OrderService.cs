@@ -19,8 +19,17 @@ namespace SMA.API.Services.ServiceImplementation
             _productCache = productCache;
         }
 
-        public async Task<CheckoutResponseDto> CreateOrderAsync(Guid userId, CreateOrderRequestDto request, CancellationToken cancellationToken = default)
+        public async Task<CheckoutResponseDto> CreateOrderAsync(Guid userId, CreateOrderRequestDto request, string? idempotencyKey, CancellationToken cancellationToken = default)
         {
+            if (!string.IsNullOrWhiteSpace(idempotencyKey))
+            {
+                var existingOrder = await _context.Orders.FirstOrDefaultAsync(order => order.UserId == userId && order.IdempotencyKey == idempotencyKey, cancellationToken);
+                if (existingOrder != null)
+                {
+                    return new CheckoutResponseDto { OrderId = existingOrder.Id, TotalAmount = existingOrder.TotalAmount, Status = existingOrder.Status, ShippingAddress = existingOrder.ShippingAddress, CreatedAt = existingOrder.CreatedAt, CheckoutUrl = existingOrder.StripeCheckoutUrl ?? string.Empty };
+                }
+            }
+
             await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
             decimal totalAmount = 0;
             var orderItems = new List<OrderItem>();
@@ -47,11 +56,13 @@ namespace SMA.API.Services.ServiceImplementation
             var order = new Order
             {
                 UserId = userId, TotalAmount = totalAmount, ShippingAddress = request.ShippingAddress,
+                IdempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey.Trim(),
                 OrderItems = orderItems, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
             };
             _context.Orders.Add(order);
             var checkoutSession = await _paymentService.CreateCheckoutSessionAsync(order, cancellationToken);
             order.StripeCheckoutSessionId = checkoutSession.Id;
+            order.StripeCheckoutUrl = checkoutSession.Url;
             await _context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             await _productCache.InvalidateActiveProductsAsync(cancellationToken);
@@ -107,6 +118,40 @@ namespace SMA.API.Services.ServiceImplementation
                 PageSize = pageSize,
                 TotalCount = totalCount,
                 TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+            };
+        }
+
+        public async Task<AdminAnalyticsDto> GetAdminAnalyticsAsync(int days, CancellationToken cancellationToken = default)
+        {
+            var since = DateTime.UtcNow.Date.AddDays(-(days - 1));
+            var paidOrders = _context.Orders.Where(order => order.Status == "Paid" || order.Status == "Placed");
+            var recentPaidOrders = paidOrders.Where(order => order.CreatedAt >= since);
+            var paidOrderCount = await recentPaidOrders.CountAsync(cancellationToken);
+            var grossSales = await recentPaidOrders.Select(order => (decimal?)order.TotalAmount).SumAsync(cancellationToken) ?? 0;
+            var statusCounts = await _context.Orders
+                .GroupBy(order => order.Status.ToLower())
+                .Select(group => new { Status = group.Key, Count = group.Count() })
+                .ToDictionaryAsync(item => item.Status, item => item.Count, cancellationToken);
+            var dailySales = await recentPaidOrders
+                .GroupBy(order => order.CreatedAt.Date)
+                .Select(group => new DailySalesDto { Date = group.Key, Amount = group.Sum(order => order.TotalAmount) })
+                .OrderBy(item => item.Date)
+                .ToListAsync(cancellationToken);
+            var activeProducts = _context.Products.Where(product => product.IsActive);
+            var inventoryValue = await activeProducts
+                .Select(product => (decimal?)(product.Price * (product.Inventory == null ? 0 : product.Inventory.QuantityAvailable)))
+                .SumAsync(cancellationToken) ?? 0;
+            return new AdminAnalyticsDto
+            {
+                GrossSales = grossSales,
+                PaidOrderCount = paidOrderCount,
+                OrderCount = await _context.Orders.CountAsync(cancellationToken),
+                AverageOrderValue = paidOrderCount == 0 ? 0 : grossSales / paidOrderCount,
+                InventoryValue = inventoryValue,
+                ActiveProductCount = await activeProducts.CountAsync(cancellationToken),
+                LowStockProductCount = await activeProducts.CountAsync(product => product.Inventory != null && product.Inventory.QuantityAvailable <= 5, cancellationToken),
+                OrderStatusCounts = statusCounts,
+                DailySales = dailySales
             };
         }
     }

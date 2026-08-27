@@ -51,4 +51,23 @@
     {
         public string CheckoutUrl { get; set; } = string.Empty;
     }
+
+    public class AdminAnalyticsDto
+    {
+        public decimal GrossSales { get; set; }
+        public int PaidOrderCount { get; set; }
+        public int OrderCount { get; set; }
+        public decimal AverageOrderValue { get; set; }
+        public decimal InventoryValue { get; set; }
+        public int ActiveProductCount { get; set; }
+        public int LowStockProductCount { get; set; }
+        public Dictionary<string, int> OrderStatusCounts { get; set; } = [];
+        public List<DailySalesDto> DailySales { get; set; } = [];
+    }
+
+    public class DailySalesDto
+    {
+        public DateTime Date { get; set; }
+        public decimal Amount { get; set; }
+    }
 }

@@ -48,7 +48,7 @@ namespace SMA.API.Services.ServiceImplementation
 
             var requestOptions = new RequestOptions
             {
-                IdempotencyKey = $"checkout-order-{order.Id}-{Guid.NewGuid()}"
+                IdempotencyKey = $"checkout-order-{order.Id}"
             };
 
             var session = await _sessions.CreateAsync(sessionOptions, requestOptions, cancellationToken);

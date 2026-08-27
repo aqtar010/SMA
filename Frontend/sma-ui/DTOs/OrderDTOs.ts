@@ -41,3 +41,15 @@ export interface PagedAdminOrderResponseDto {
 export interface CheckoutResponseDto extends OrderResponseDto {
   checkoutUrl: string;
 }
+
+export interface AdminAnalyticsDto {
+  grossSales: number;
+  paidOrderCount: number;
+  orderCount: number;
+  averageOrderValue: number;
+  inventoryValue: number;
+  activeProductCount: number;
+  lowStockProductCount: number;
+  orderStatusCounts: Record<string, number>;
+  dailySales: { date: string; amount: number }[];
+}

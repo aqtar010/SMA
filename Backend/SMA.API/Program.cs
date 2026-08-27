@@ -52,7 +52,8 @@ builder.Services.AddStackExchangeRedisCache(options =>
 });
 builder.Services.AddSingleton<IProductCache, ProductCache>();
 builder.Services.AddHealthChecks()
-    .AddRedis(redisConnectionString, name: "redis");
+    .AddRedis(redisConnectionString, name: "redis")
+    .AddDbContextCheck<AppDbContext>(name: "postgresql");
 builder.Services.Configure<SMA.API.Configuration.StripeOptions>(builder.Configuration.GetSection("Stripe"));
 Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 builder.Services.AddScoped<IPaymentService, StripePaymentService>();
