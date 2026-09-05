@@ -5,6 +5,7 @@ using SMA.API.Data;
 using SMA.API.Hubs;
 using SMA.API.Services.ServiceContracts;
 using SMA.API.Services.ServiceImplementation;
+using SMA.InventoryForecasting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -55,6 +56,7 @@ builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = redisConnectionString;
 });
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConnectionString));
 builder.Services.AddSingleton<IProductCache, ProductCache>();
 builder.Services.AddHealthChecks()
     .AddRedis(redisConnectionString, name: "redis")
@@ -68,6 +70,10 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IStripeWebhookService, StripeWebhookService>();
 DependencyInjectionAuth.AddJwtAuthentication(builder.Services, builder.Configuration);
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddInventoryForecasting();
+builder.Services.AddScoped<IForecastDataSource, ForecastDataSource>();
+builder.Services.AddScoped<IForecastStore, ForecastStore>();
+builder.Services.AddSingleton<IForecastRefreshLock, ForecastRefreshLock>();
 
 var app = builder.Build();
 

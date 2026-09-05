@@ -14,6 +14,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["Backend/SMA.API/SMA.API.csproj", "Backend/SMA.API/"]
+COPY ["Backend/SMA.InventoryForecasting/SMA.InventoryForecasting.csproj", "Backend/SMA.InventoryForecasting/"]
 RUN dotnet restore "./Backend/SMA.API/SMA.API.csproj"
 COPY . .
 WORKDIR "/src/Backend/SMA.API"

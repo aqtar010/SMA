@@ -17,6 +17,7 @@ namespace SMA.API.Data
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<StripeWebhookEvent> StripeWebhookEvents { get; set; }
         public DbSet<ProductRating> ProductRatings { get; set; }
+        public DbSet<InventoryForecastSnapshot> InventoryForecastSnapshots { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -75,6 +76,7 @@ namespace SMA.API.Data
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<RefreshToken>().HasIndex(rt => rt.TokenHash).IsUnique(false);
+            modelBuilder.Entity<InventoryForecastSnapshot>().HasIndex(snapshot => snapshot.GeneratedAt);
         }
     }
 }   

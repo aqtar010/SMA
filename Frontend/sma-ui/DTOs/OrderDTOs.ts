@@ -53,3 +53,23 @@ export interface AdminAnalyticsDto {
   orderStatusCounts: Record<string, number>;
   dailySales: { date: string; amount: number }[];
 }
+
+export interface InventoryForecastRecommendationDto {
+  productId: string;
+  predictedDemand: number;
+  reorderPoint: number;
+  reorderRecommended: boolean;
+  trendPercent: number;
+  insight: string;
+}
+
+export interface InventoryForecastDto {
+  id: string;
+  generatedAt: string;
+  historySince: string;
+  historyUntil: string;
+  nextRefreshAt: string;
+  status: string;
+  error: string | null;
+  recommendations: InventoryForecastRecommendationDto[];
+}

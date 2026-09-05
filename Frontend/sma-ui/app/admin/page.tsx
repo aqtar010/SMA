@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { AdminAnalyticsDto, AdminOrderResponseDto } from "@/DTOs/OrderDTOs";
-import { getAdminAnalytics, getAdminOrders } from "@/Lib/OrderApis";
+import { AdminAnalyticsDto, AdminOrderResponseDto, InventoryForecastDto } from "@/DTOs/OrderDTOs";
+import { getAdminAnalytics, getAdminInventoryForecast, getAdminOrders } from "@/Lib/OrderApis";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -22,6 +22,15 @@ function formatDate(value: string) {
   });
 }
 
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function statusClassName(status: string) {
   const normalized = status.toLowerCase();
   if (normalized === "paid" || normalized === "placed") {
@@ -36,6 +45,7 @@ function statusClassName(status: string) {
 export default function AdminDashboardPage() {
   const [orders, setOrders] = useState<AdminOrderResponseDto[]>([]);
   const [analytics, setAnalytics] = useState<AdminAnalyticsDto | null>(null);
+  const [forecast, setForecast] = useState<InventoryForecastDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,12 +53,14 @@ export default function AdminDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const [loadedOrders, loadedAnalytics] = await Promise.all([
+      const [loadedOrders, loadedAnalytics, loadedForecast] = await Promise.all([
         getAdminOrders(1, 5),
         getAdminAnalytics(7),
+        getAdminInventoryForecast(),
       ]);
       setOrders(loadedOrders.items);
       setAnalytics(loadedAnalytics);
+      setForecast(loadedForecast);
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? err.response?.data || err.message
@@ -156,6 +168,33 @@ export default function AdminDashboardPage() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1fr_1.35fr]">
+        <div className="rounded-xl border border-teal-200 bg-teal-50 p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-950">AI inventory forecast</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                {forecast ? `Updated ${formatDateTime(forecast.generatedAt)} · ${forecast.status}` : "No forecast snapshot available yet."}
+              </p>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-teal-700">Advisory</span>
+          </div>
+          <div className="mt-5 space-y-3">
+            {!forecast ? (
+              <p className="text-sm text-slate-600">The scheduled refresh will publish an insight when enough data is available.</p>
+            ) : forecast.recommendations.filter((item) => item.reorderRecommended).length === 0 ? (
+              <p className="text-sm text-slate-600">No reorder recommendations in the latest snapshot.</p>
+            ) : (
+              forecast.recommendations.filter((item) => item.reorderRecommended).slice(0, 3).map((item) => (
+                <div key={item.productId} className="rounded-lg border border-teal-100 bg-white px-4 py-3 text-sm text-slate-700">
+                  <p className="font-medium text-slate-950">{item.insight}</p>
+                  <p className="mt-1 text-xs text-slate-500">Predicted demand: {item.predictedDemand} units · Reorder point: {item.reorderPoint}</p>
+                </div>
+              ))
+            )}
+            {forecast?.status === "Stale" && <p className="text-xs font-medium text-amber-700">This is the last valid snapshot. A refresh will retry automatically.</p>}
+          </div>
+        </div>
+
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
           <div className="flex items-start justify-between gap-4">
             <div><h2 className="text-lg font-semibold text-slate-950">Inventory attention</h2><p className="mt-1 text-sm text-slate-600">{analytics.lowStockProductCount} active products need a look.</p></div>

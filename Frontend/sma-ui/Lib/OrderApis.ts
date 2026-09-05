@@ -6,6 +6,7 @@ import {
   PagedAdminOrderResponseDto,
   OrderResponseDto,
   AdminAnalyticsDto,
+  InventoryForecastDto,
 } from "@/DTOs/OrderDTOs";
 
 export async function checkout(
@@ -48,4 +49,9 @@ export async function getAdminAnalytics(days = 7): Promise<AdminAnalyticsDto> {
     params: { days },
   });
   return response.data;
+}
+
+export async function getAdminInventoryForecast(): Promise<InventoryForecastDto | null> {
+  const response = await api.get<InventoryForecastDto | null>("/admin/inventory-forecast");
+  return response.status === 204 ? null : response.data;
 }
