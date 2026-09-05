@@ -9,6 +9,8 @@ import {
   InventoryForecastDto,
 } from "@/DTOs/OrderDTOs";
 
+const dashboardRequestOptions = { timeout: 15000 };
+
 export async function checkout(
   request: CreateOrderRequestDto,
   idempotencyKey: string,
@@ -40,6 +42,7 @@ export async function getAdminOrders(
 ): Promise<PagedAdminOrderResponseDto> {
   const response = await api.get<PagedAdminOrderResponseDto>("/admin/orders", {
     params: { page, pageSize },
+    ...dashboardRequestOptions,
   });
   return response.data;
 }
@@ -47,11 +50,14 @@ export async function getAdminOrders(
 export async function getAdminAnalytics(days = 7): Promise<AdminAnalyticsDto> {
   const response = await api.get<AdminAnalyticsDto>("/admin/analytics", {
     params: { days },
+    ...dashboardRequestOptions,
   });
   return response.data;
 }
 
 export async function getAdminInventoryForecast(): Promise<InventoryForecastDto | null> {
-  const response = await api.get<InventoryForecastDto | null>("/admin/inventory-forecast");
+  const response = await api.get<InventoryForecastDto | null>("/admin/inventory-forecast", {
+    timeout: 15000,
+  });
   return response.status === 204 ? null : response.data;
 }

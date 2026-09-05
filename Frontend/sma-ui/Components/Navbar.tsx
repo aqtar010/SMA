@@ -17,8 +17,8 @@ export default function Navbar() {
     0,
   );
 
-  function handleLogout() {
-    clearAuth();
+  async function handleLogout() {
+    await clearAuth();
     router.replace("/login");
   }
 

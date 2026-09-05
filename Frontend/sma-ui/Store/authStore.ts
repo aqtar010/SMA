@@ -32,7 +32,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialized: false,
 
   initialize: async () => {
-    localStorage.removeItem("jwtToken");
+    const existingToken = localStorage.getItem("accessToken") ?? get().accessToken;
+    const storedRole = parseRole(localStorage.getItem("userRole"));
+    const storedEmail = localStorage.getItem("userEmail");
+
+    if (existingToken) {
+      set({
+        accessToken: existingToken,
+        role: storedRole,
+        email: storedEmail ?? null,
+        authenticated: true,
+        initialized: true,
+      });
+      return;
+    }
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api"}/auth/refresh`,
@@ -41,6 +55,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (!response.ok) throw new Error("No active session");
       const result = await response.json() as { token: string; role?: string; email?: string };
       const role = parseRole(result.role ?? null);
+      localStorage.setItem("accessToken", result.token);
       localStorage.setItem("userRole", role ?? "");
       if (result.email) localStorage.setItem("userEmail", result.email);
       set({ accessToken: result.token, role, email: result.email ?? null, authenticated: true, initialized: true });
@@ -52,6 +67,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   getAccessToken: () => get().accessToken,
 
   setAuth: (token, role, email) => {
+    localStorage.setItem("accessToken", token);
     localStorage.setItem("userRole", role);
     if (email) localStorage.setItem("userEmail", email);
     else localStorage.removeItem("userEmail");
@@ -65,6 +81,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setAccessToken: (token) => {
+    if (token) {
+      localStorage.setItem("accessToken", token);
+    } else {
+      localStorage.removeItem("accessToken");
+    }
+
     set({
       accessToken: token,
       authenticated: !!token,
@@ -76,13 +98,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return role === "Admin" || role === "SuperAdmin";
   },
 
-  clearAuth: () => {
-    void fetch(
+  clearAuth: async () => {
+    await fetch(
       `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api"}/auth/revoke`,
       { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" },
     ).catch(() => undefined);
     localStorage.removeItem("userRole");
     localStorage.removeItem("userEmail");
+    localStorage.removeItem("accessToken");
 
     set({
       accessToken: null,

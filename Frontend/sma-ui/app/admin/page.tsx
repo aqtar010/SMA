@@ -56,7 +56,7 @@ export default function AdminDashboardPage() {
       const [loadedOrders, loadedAnalytics, loadedForecast] = await Promise.all([
         getAdminOrders(1, 5),
         getAdminAnalytics(7),
-        getAdminInventoryForecast(),
+        getAdminInventoryForecast().catch(() => null),
       ]);
       setOrders(loadedOrders.items);
       setAnalytics(loadedAnalytics);

@@ -15,6 +15,8 @@ namespace SMA.API.DTOs
         [Range(0.01, 100000)]
         public decimal Price { get; set; }
 
+        public DateTime? ExpiryDate { get; set; }
+
         [Range(0, 10000)]
         public int InitialStock { get; set; }
     }
@@ -25,6 +27,7 @@ namespace SMA.API.DTOs
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public decimal Price { get; set; }
+        public DateTime? ExpiryDate { get; set; }
         public int QuantityAvailable { get; set; } // Flattened from the Inventory table
         public double AverageRating { get; set; }
         public int RatingCount { get; set; }
@@ -76,6 +79,7 @@ namespace SMA.API.DTOs
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public decimal Price { get; set; }
+        public DateTime? ExpiryDate { get; set; }
         public bool IsActive { get; set; }
         public int QuantityAvailable { get; set; }
         public int QuantityReserved { get; set; }
@@ -95,6 +99,10 @@ namespace SMA.API.DTOs
 
         [Range(0.01, 100000)]
         public decimal? Price { get; set; }
+
+        public DateTime? ExpiryDate { get; set; }
+
+        public bool ClearExpiryDate { get; set; }
 
         public bool? IsActive { get; set; }
     }

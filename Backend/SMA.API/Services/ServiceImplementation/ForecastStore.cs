@@ -14,7 +14,7 @@ public sealed class ForecastStore(
     IOptions<ForecastOptions> options,
     ILogger<ForecastStore> logger) : IForecastStore
 {
-    private const string CacheKey = "sma:inventory-forecast:v1";
+    private const string CacheKey = "sma:inventory-forecast:v2";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<InventoryForecast?> GetLatestAsync(CancellationToken cancellationToken)
@@ -24,7 +24,11 @@ public sealed class ForecastStore(
             var cached = await cache.GetStringAsync(CacheKey, cancellationToken);
             if (!string.IsNullOrWhiteSpace(cached))
             {
-                return JsonSerializer.Deserialize<InventoryForecast>(cached, JsonOptions);
+                var forecast = JsonSerializer.Deserialize<InventoryForecast>(cached, JsonOptions);
+                if (forecast is not null && !(forecast.Status == "Unavailable" && forecast.Recommendations.Count == 0))
+                {
+                    return forecast;
+                }
             }
         }
         catch (Exception exception)
@@ -33,6 +37,8 @@ public sealed class ForecastStore(
         }
 
         var snapshot = await context.InventoryForecastSnapshots
+            .AsNoTracking()
+            .Where(item => item.Status != "Unavailable" || item.RecommendationsJson != "[]")
             .OrderByDescending(item => item.GeneratedAt)
             .FirstOrDefaultAsync(cancellationToken);
         return snapshot is null ? null : Map(snapshot);
@@ -40,17 +46,18 @@ public sealed class ForecastStore(
 
     public async Task SaveAsync(InventoryForecast forecast, CancellationToken cancellationToken)
     {
-        context.InventoryForecastSnapshots.Add(new InventoryForecastSnapshot
+        var entity = await context.InventoryForecastSnapshots.FindAsync([forecast.Id], cancellationToken);
+        var snapshot = MapToEntity(forecast);
+
+        if (entity is null)
         {
-            Id = forecast.Id,
-            GeneratedAt = forecast.GeneratedAt,
-            HistorySince = forecast.HistorySince,
-            HistoryUntil = forecast.HistoryUntil,
-            NextRefreshAt = forecast.NextRefreshAt,
-            Status = forecast.Status,
-            Error = forecast.Error,
-            RecommendationsJson = JsonSerializer.Serialize(forecast.Recommendations, JsonOptions)
-        });
+            context.InventoryForecastSnapshots.Add(snapshot);
+        }
+        else
+        {
+            context.Entry(entity).CurrentValues.SetValues(snapshot);
+        }
+
         await context.SaveChangesAsync(cancellationToken);
 
         try
@@ -65,6 +72,18 @@ public sealed class ForecastStore(
             logger.LogWarning(exception, "Unable to cache inventory forecast in Redis.");
         }
     }
+
+    private static InventoryForecastSnapshot MapToEntity(InventoryForecast forecast) => new()
+    {
+        Id = forecast.Id,
+        GeneratedAt = forecast.GeneratedAt,
+        HistorySince = forecast.HistorySince,
+        HistoryUntil = forecast.HistoryUntil,
+        NextRefreshAt = forecast.NextRefreshAt,
+        Status = forecast.Status,
+        Error = forecast.Error,
+        RecommendationsJson = JsonSerializer.Serialize(forecast.Recommendations, JsonOptions)
+    };
 
     private static InventoryForecast Map(InventoryForecastSnapshot snapshot) => new(
         snapshot.Id,

@@ -5,7 +5,7 @@ namespace SMA.API.Services.ServiceImplementation;
 
 public sealed class ForecastRefreshLock(IConnectionMultiplexer redis) : IForecastRefreshLock
 {
-    private const string LockKey = "sma:inventory-forecast:refresh-lock:v1";
+    private const string LockKey = "sma:inventory-forecast:refresh-lock:v2";
 
     public async Task<IAsyncDisposable?> TryAcquireAsync(TimeSpan duration, CancellationToken cancellationToken)
     {

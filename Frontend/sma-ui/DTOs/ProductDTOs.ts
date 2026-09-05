@@ -4,6 +4,7 @@ export interface ProductResponseDto {
   name: string;
   description: string | null;
   price: number;
+  expiryDate: string | null;
   quantityAvailable: number;
   averageRating: number;
   ratingCount: number;
@@ -47,6 +48,7 @@ export interface AdminProductResponseDto {
   name: string;
   description: string | null;
   price: number;
+  expiryDate: string | null;
   isActive: boolean;
   quantityAvailable: number;
   quantityReserved: number;
@@ -59,6 +61,7 @@ export interface CreateProductDto {
   name: string;
   description?: string;
   price: number;
+  expiryDate?: string;
   initialStock: number;
 }
 
@@ -67,6 +70,8 @@ export interface UpdateProductDto {
   name?: string;
   description?: string;
   price?: number;
+  expiryDate?: string;
+  clearExpiryDate?: boolean;
   isActive?: boolean;
 }
 

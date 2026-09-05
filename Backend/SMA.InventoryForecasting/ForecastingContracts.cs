@@ -1,10 +1,20 @@
+using System.Text.Json.Serialization;
+
 namespace SMA.InventoryForecasting;
 
 public sealed record ProductDemandInput(
     Guid ProductId,
     string ProductName,
+    DateTime? ExpiryDate,
+    int DaysUntilExpiry,
     int CurrentStock,
     int ReservedStock,
+    int AvgDailySales7,
+    int AvgDailySales30,
+    double TrendPercent,
+    int ReorderPoint,
+    double DaysOfCover,
+    double UrgencyScore,
     IReadOnlyList<DailyDemand> DailyDemand);
 
 public sealed record DailyDemand(DateTime Date, int Quantity);
@@ -14,15 +24,16 @@ public sealed record ForecastInput(
     DateTime HistorySince,
     DateTime HistoryUntil,
     int ForecastHorizonDays,
+    int MaxProducts,
     IReadOnlyList<ProductDemandInput> Products);
 
 public sealed record ForecastRecommendation(
-    Guid ProductId,
-    int PredictedDemand,
-    int ReorderPoint,
-    bool ReorderRecommended,
-    double TrendPercent,
-    string Insight);
+    [property: JsonPropertyName("productId")] Guid ProductId,
+    [property: JsonPropertyName("predictedDemand")] int PredictedDemand,
+    [property: JsonPropertyName("reorderPoint")] int ReorderPoint,
+    [property: JsonPropertyName("reorderRecommended")] bool ReorderRecommended,
+    [property: JsonPropertyName("trendPercent")] double TrendPercent,
+    [property: JsonPropertyName("insight")] string Insight);
 
 public sealed record InventoryForecast(
     Guid Id,

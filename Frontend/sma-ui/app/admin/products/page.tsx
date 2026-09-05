@@ -18,6 +18,7 @@ type EditForm = {
   name: string;
   description: string;
   price: string;
+  expiryDate: string;
   isActive: boolean;
 };
 
@@ -26,6 +27,7 @@ const emptyCreateForm: CreateProductDto = {
   name: "",
   description: "",
   price: 0,
+  expiryDate: "",
   initialStock: 0,
 };
 
@@ -105,6 +107,7 @@ export default function AdminProductsPage() {
       name: product.name,
       description: product.description ?? "",
       price: product.price.toString(),
+      expiryDate: product.expiryDate ? product.expiryDate.slice(0, 10) : "",
       isActive: product.isActive,
     });
   }
@@ -122,6 +125,8 @@ export default function AdminProductsPage() {
         name: editForm.name,
         description: editForm.description,
         price: Number(editForm.price),
+        expiryDate: editForm.expiryDate || undefined,
+        clearExpiryDate: !editForm.expiryDate,
         isActive: editForm.isActive,
       });
       setEditingProduct(null);
@@ -262,6 +267,16 @@ export default function AdminProductsPage() {
                 })
               }
               required
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Expiry date">
+            <input
+              type="date"
+              value={createForm.expiryDate ?? ""}
+              onChange={(e) =>
+                setCreateForm({ ...createForm, expiryDate: e.target.value || undefined })
+              }
               className={inputClass}
             />
           </Field>
@@ -438,6 +453,16 @@ export default function AdminProductsPage() {
                     setEditForm({ ...editForm, price: e.target.value })
                   }
                   required
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Expiry date">
+                <input
+                  type="date"
+                  value={editForm.expiryDate}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, expiryDate: e.target.value })
+                  }
                   className={inputClass}
                 />
               </Field>

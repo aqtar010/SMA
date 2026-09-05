@@ -11,20 +11,26 @@ public sealed class InventoryForecastService(
     IOptions<ForecastOptions> options,
     ILogger<InventoryForecastService> logger) : IInventoryForecastService
 {
-    public Task<InventoryForecast?> GetLatestAsync(CancellationToken cancellationToken) =>
-        store.GetLatestAsync(cancellationToken);
+    public async Task<InventoryForecast?> GetLatestAsync(CancellationToken cancellationToken)
+    {
+        var latest = await store.GetLatestAsync(cancellationToken);
+        return latest;
+    }
 
     public async Task<InventoryForecast> RefreshAsync(CancellationToken cancellationToken)
     {
         var settings = options.Value;
-        await using var lease = await refreshLock.TryAcquireAsync(
-            TimeSpan.FromHours(settings.RefreshIntervalHours), cancellationToken);
+        var lockDuration = TimeSpan.FromSeconds(settings.RequestTimeoutSeconds + 30);
+        var lease = await refreshLock.TryAcquireAsync(lockDuration, cancellationToken);
+
         if (lease is null)
         {
+            logger.LogInformation("Inventory forecast refresh is already running; returning the latest snapshot.");
             return await store.GetLatestAsync(cancellationToken)
                 ?? EmptyForecast(DateTime.UtcNow, "Waiting for another refresh.");
         }
 
+        await using var refreshLease = lease;
         var now = DateTime.UtcNow;
         var input = await dataSource.GetInputAsync(now, settings, cancellationToken);
         try
@@ -35,6 +41,12 @@ public sealed class InventoryForecastService(
                 now.AddHours(settings.RefreshIntervalHours), "Fresh", null, recommendations);
             await store.SaveAsync(forecast, cancellationToken);
             return forecast;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            logger.LogInformation("Inventory forecast refresh canceled by the requesting client.");
+            return await store.GetLatestAsync(CancellationToken.None)
+                ?? EmptyForecast(DateTime.UtcNow, "Refresh canceled.");
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidOperationException)
         {

@@ -77,6 +77,7 @@ namespace SMA.API.Controllers
 
                 _logger.LogInformation("User logged in: {Email}", result.Email);
 
+                DeleteRefreshCookies();
                 SetRefreshCookie(result.RefreshToken);
                 return Ok(new { 
                     token = result.AccessToken,
@@ -96,7 +97,11 @@ namespace SMA.API.Controllers
         public async Task<IActionResult> Refresh()
         {
             var refreshToken = Request.Cookies[RefreshCookieName];
-            if (string.IsNullOrEmpty(refreshToken)) return BadRequest("RefreshToken is required.");
+            if (string.IsNullOrEmpty(refreshToken))
+            {
+                DeleteRefreshCookies();
+                return BadRequest("RefreshToken is required.");
+            }
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
             try
@@ -108,6 +113,7 @@ namespace SMA.API.Controllers
             catch (InvalidOperationException ex)
             {
                 _logger.LogWarning(ex, "Invalid refresh attempt");
+                DeleteRefreshCookies();
                 return Unauthorized("Invalid refresh token.");
             }
         }
@@ -116,13 +122,20 @@ namespace SMA.API.Controllers
         public async Task<IActionResult> Revoke()
         {
             var refreshToken = Request.Cookies[RefreshCookieName];
-            if (string.IsNullOrEmpty(refreshToken)) return BadRequest("RefreshToken is required.");
-            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            if (!string.IsNullOrEmpty(refreshToken))
+            {
+                var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                await _tokenService.RevokeRefreshTokenAsync(refreshToken, ip);
+            }
 
-            var success = await _tokenService.RevokeRefreshTokenAsync(refreshToken, ip);
-            if (!success) return NotFound("Token not found or already revoked.");
-            Response.Cookies.Delete(RefreshCookieName, new CookieOptions { Path = "/api/auth" });
+            DeleteRefreshCookies();
             return Ok(new { message = "Token revoked." });
+        }
+
+        private void DeleteRefreshCookies()
+        {
+            Response.Cookies.Delete(RefreshCookieName, new CookieOptions { Path = "/api/auth" });
+            Response.Cookies.Delete(RefreshCookieName, new CookieOptions { Path = "/" });
         }
 
         private void SetRefreshCookie(string refreshToken)

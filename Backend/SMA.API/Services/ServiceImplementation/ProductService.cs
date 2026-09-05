@@ -31,7 +31,7 @@ namespace SMA.API.Services.ServiceImplementation
                 .Select(product => new ProductResponseDto
                 {
                     Id = product.Id, Sku = product.Sku, Name = product.Name,
-                    Description = product.Description, Price = product.Price,
+                    Description = product.Description, Price = product.Price, ExpiryDate = product.ExpiryDate,
                     QuantityAvailable = product.Inventory == null ? 0 : product.Inventory.QuantityAvailable
                 }).ToListAsync(cancellationToken);
             await _productCache.SetActiveProductsAsync(products, cancellationToken);
@@ -46,6 +46,7 @@ namespace SMA.API.Services.ServiceImplementation
             var product = new Product
             {
                 Sku = request.Sku, Name = request.Name, Description = request.Description, Price = request.Price,
+                ExpiryDate = request.ExpiryDate?.ToUniversalTime(),
                 Inventory = new Inventory { QuantityAvailable = request.InitialStock, QuantityReserved = 0 }
             };
             _context.Products.Add(product);
@@ -64,7 +65,7 @@ namespace SMA.API.Services.ServiceImplementation
                 .Select(product => new AdminProductResponseDto
                 {
                     Id = product.Id, Sku = product.Sku, Name = product.Name,
-                    Description = product.Description, Price = product.Price, IsActive = product.IsActive,
+                    Description = product.Description, Price = product.Price, ExpiryDate = product.ExpiryDate, IsActive = product.IsActive,
                     QuantityAvailable = product.Inventory == null ? 0 : product.Inventory.QuantityAvailable,
                     QuantityReserved = product.Inventory == null ? 0 : product.Inventory.QuantityReserved,
                     CreatedAt = product.CreatedAt, UpdatedAt = product.UpdatedAt
@@ -86,6 +87,8 @@ namespace SMA.API.Services.ServiceImplementation
             if (!string.IsNullOrWhiteSpace(request.Name)) product.Name = request.Name;
             if (request.Description != null) product.Description = request.Description;
             if (request.Price.HasValue) product.Price = request.Price.Value;
+            if (request.ClearExpiryDate) product.ExpiryDate = null;
+            else if (request.ExpiryDate.HasValue) product.ExpiryDate = request.ExpiryDate.Value.ToUniversalTime();
             if (request.IsActive.HasValue) product.IsActive = request.IsActive.Value;
             product.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
@@ -119,7 +122,7 @@ namespace SMA.API.Services.ServiceImplementation
             var update = new
             {
                 id = product.Id, productId = product.Id, product.Sku, product.Name, product.Description,
-                product.Price, product.IsActive, quantityAvailable = product.Inventory?.QuantityAvailable ?? 0,
+                product.Price, product.ExpiryDate, product.IsActive, quantityAvailable = product.Inventory?.QuantityAvailable ?? 0,
                 updatedAt = product.UpdatedAt
             };
             await _hubContext.Clients.Group(product.Id.ToString()).SendAsync("ProductUpdated", update);
@@ -129,7 +132,7 @@ namespace SMA.API.Services.ServiceImplementation
         private static ProductResponseDto MapProduct(Product product) => new()
         {
             Id = product.Id, Sku = product.Sku, Name = product.Name, Description = product.Description,
-            Price = product.Price, QuantityAvailable = product.Inventory?.QuantityAvailable ?? 0
+            Price = product.Price, ExpiryDate = product.ExpiryDate, QuantityAvailable = product.Inventory?.QuantityAvailable ?? 0
         };
 
         public async Task<ProductRatingSummaryDto?> GetRatingSummaryAsync(Guid productId, Guid userId, CancellationToken cancellationToken = default)
