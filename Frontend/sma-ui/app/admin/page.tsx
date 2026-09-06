@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { AdminAnalyticsDto, AdminOrderResponseDto, InventoryForecastDto } from "@/DTOs/OrderDTOs";
+import { AdminProductResponseDto } from "@/DTOs/ProductDTOs";
 import { getAdminAnalytics, getAdminInventoryForecast, getAdminOrders } from "@/Lib/OrderApis";
+import { fetchAdminProducts } from "@/Lib/ProductApis";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -46,6 +48,7 @@ export default function AdminDashboardPage() {
   const [orders, setOrders] = useState<AdminOrderResponseDto[]>([]);
   const [analytics, setAnalytics] = useState<AdminAnalyticsDto | null>(null);
   const [forecast, setForecast] = useState<InventoryForecastDto | null>(null);
+  const [products, setProducts] = useState<AdminProductResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,14 +56,16 @@ export default function AdminDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const [loadedOrders, loadedAnalytics, loadedForecast] = await Promise.all([
+      const [loadedOrders, loadedAnalytics, loadedForecast, loadedProducts] = await Promise.all([
         getAdminOrders(1, 5),
         getAdminAnalytics(7),
         getAdminInventoryForecast().catch(() => null),
+        fetchAdminProducts().catch(() => []),
       ]);
       setOrders(loadedOrders.items);
       setAnalytics(loadedAnalytics);
       setForecast(loadedForecast);
+      setProducts(loadedProducts);
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? err.response?.data || err.message
@@ -95,6 +100,7 @@ export default function AdminDashboardPage() {
     amount: day.amount,
   }));
   const maxDailyRevenue = Math.max(...lastSevenDays.map((day) => day.amount), 1);
+  const productsById = new Map(products.map((product) => [product.id, product]));
 
   return (
     <div className="space-y-8">
@@ -181,12 +187,21 @@ export default function AdminDashboardPage() {
           <div className="mt-5 space-y-3">
             {!forecast ? (
               <p className="text-sm text-slate-600">The scheduled refresh will publish an insight when enough data is available.</p>
-            ) : forecast.recommendations.filter((item) => item.reorderRecommended).length === 0 ? (
-              <p className="text-sm text-slate-600">No reorder recommendations in the latest snapshot.</p>
+            ) : forecast.recommendations.length === 0 ? (
+              <p className="text-sm text-slate-600">No AI recommendations in the latest snapshot.</p>
             ) : (
-              forecast.recommendations.filter((item) => item.reorderRecommended).slice(0, 3).map((item) => (
+              forecast.recommendations.slice(0, 3).map((item) => (
                 <div key={item.productId} className="rounded-lg border border-teal-100 bg-white px-4 py-3 text-sm text-slate-700">
-                  <p className="font-medium text-slate-950">{item.insight}</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-slate-950">{productsById.get(item.productId)?.name ?? "Unknown product"}</p>
+                      <p className="mt-1 font-mono text-xs text-slate-500">SKU: {productsById.get(item.productId)?.sku ?? item.productId}</p>
+                      <p className="mt-2 text-sm text-slate-700">{item.insight}</p>
+                    </div>
+                    <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${item.reorderRecommended ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-600"}`}>
+                      {item.reorderRecommended ? "Reorder" : "Monitor"}
+                    </span>
+                  </div>
                   <p className="mt-1 text-xs text-slate-500">Predicted demand: {item.predictedDemand} units · Reorder point: {item.reorderPoint}</p>
                 </div>
               ))
